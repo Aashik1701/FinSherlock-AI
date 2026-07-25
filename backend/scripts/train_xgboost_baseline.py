@@ -6,6 +6,8 @@ Offline XGBoost baseline training script — run ONCE from the backend/ director
 Methodology (mirrors financial-fraud-ring-detection.ipynb):
   - Leakage-aware chronological 60/20/20 split on HI-Small_Trans.csv
   - Degree features computed from train split ONLY, looked up for val/test
+  - Time-of-day / day-of-week one-hot (laundering clusters at off-hours)
+  - Amount entropy per sender account (structurers show low entropy)
   - scale_pos_weight for class imbalance
   - Threshold tuned by maximising F1 on validation set
   - Model + feature list + threshold saved to data/models/xgb_baseline.joblib
@@ -32,6 +34,17 @@ OUT_DIR = ROOT / "data/models"
 OUT     = OUT_DIR / "xgb_baseline.joblib"
 
 SEED = 42
+_ENTROPY_BINS = 10  # number of equal-width bins for amount discretisation
+
+
+def _shannon_entropy(values: np.ndarray) -> float:
+    """Shannon entropy (in bits) of a 1-D array of values, binned into _ENTROPY_BINS."""
+    if len(values) == 0:
+        return 0.0
+    counts, _ = np.histogram(values, bins=_ENTROPY_BINS)
+    probs = counts / counts.sum()
+    probs = probs[probs > 0]  # drop empty bins
+    return float(-np.sum(probs * np.log2(probs)))
 
 
 def best_threshold_by_f1(y_true: np.ndarray, probs: np.ndarray) -> float:
@@ -81,6 +94,11 @@ def main() -> None:
     train_out_deg = train.groupby("Account").size()
     train_in_deg  = train.groupby("Account.1").size()
 
+    # ── Amount entropy per sender account from TRAIN ONLY (leakage-aware) ──────
+    train_amount_entropy = train.groupby("Account")["Amount Paid"].apply(
+        lambda s: _shannon_entropy(s.values.astype(float))
+    )
+
     def add_features(part: pd.DataFrame) -> pd.DataFrame:
         part = part.copy()
         part["sender_out_degree"]    = part["Account"].map(train_out_deg).fillna(0.0)
@@ -89,11 +107,44 @@ def main() -> None:
             part["Payment Currency"].astype(str) != part["Receiving Currency"].astype(str)
         ).astype("int8")
         part["log_amount_paid"] = np.log1p(part["Amount Paid"].astype("float64"))
+        # Amount entropy (train-only lookup, 0 for unseen accounts)
+        part["amount_entropy"] = part["Account"].map(train_amount_entropy).fillna(0.0)
         return part
 
     train = add_features(train)
     val   = add_features(val)
     test  = add_features(test)
+
+    # ── Time-of-day / day-of-week one-hot ─────────────────────────────────────
+    def add_time_features(part: pd.DataFrame) -> tuple[pd.DataFrame, list[str], list[str]]:
+        """Add hour-of-day and day-of-week one-hot columns. Returns (df, hod_cols, dow_cols)."""
+        part = part.copy()
+        hod_dummies = pd.get_dummies(part["Timestamp"].dt.hour, prefix="hod", dtype=int)
+        dow_dummies = pd.get_dummies(part["Timestamp"].dt.dayofweek, prefix="dow", dtype=int)
+        hod_cols = list(hod_dummies.columns)
+        dow_cols = list(dow_dummies.columns)
+        for col in hod_cols:
+            part[col] = hod_dummies[col].values
+        for col in dow_cols:
+            part[col] = dow_dummies[col].values
+        return part, hod_cols, dow_cols
+
+    train, hod_cols, dow_cols = add_time_features(train)
+
+    def add_time_features_aligned(part: pd.DataFrame) -> pd.DataFrame:
+        part = part.copy()
+        hod_dummies = pd.get_dummies(part["Timestamp"].dt.hour, prefix="hod", dtype=int)
+        dow_dummies = pd.get_dummies(part["Timestamp"].dt.dayofweek, prefix="dow", dtype=int)
+        hod_dummies = hod_dummies.reindex(columns=hod_cols, fill_value=0)
+        dow_dummies = dow_dummies.reindex(columns=dow_cols, fill_value=0)
+        for col in hod_cols:
+            part[col] = hod_dummies[col].values
+        for col in dow_cols:
+            part[col] = dow_dummies[col].values
+        return part
+
+    val   = add_time_features_aligned(val)
+    test  = add_time_features_aligned(test)
 
     # ── Payment Format one-hot — categories fixed from train ──────────────────
     fmt_dummies = pd.get_dummies(train["Payment Format"], prefix="fmt", dtype=int)
@@ -111,7 +162,10 @@ def main() -> None:
     add_fmt(test)
 
     FEATURE_COLS = (
-        ["sender_out_degree", "receiver_in_degree", "is_currency_mismatch", "log_amount_paid"]
+        ["sender_out_degree", "receiver_in_degree", "is_currency_mismatch",
+         "log_amount_paid", "amount_entropy"]
+        + hod_cols
+        + dow_cols
         + fmt_cols
     )
     print(f"\n  {len(FEATURE_COLS)} features: {FEATURE_COLS}")
@@ -171,16 +225,19 @@ def main() -> None:
     # ── Save ───────────────────────────────────────────────────────────────────
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     payload = {
-        "model":         xgb,
-        "feature_cols":  FEATURE_COLS,
-        "fmt_cols":      fmt_cols,
-        "threshold":     threshold,
-        "train_out_deg": dict(train_out_deg),
-        "train_in_deg":  dict(train_in_deg),
-        "pr_auc":        pr_auc,
-        "n_train":       len(train),
-        "n_val":         len(val),
-        "n_test":        len(test),
+        "model":             xgb,
+        "feature_cols":      FEATURE_COLS,
+        "fmt_cols":          fmt_cols,
+        "hod_cols":          hod_cols,
+        "dow_cols":          dow_cols,
+        "threshold":         threshold,
+        "train_out_deg":     dict(train_out_deg),
+        "train_in_deg":      dict(train_in_deg),
+        "train_amount_entropy": dict(train_amount_entropy),
+        "pr_auc":            pr_auc,
+        "n_train":           len(train),
+        "n_val":             len(val),
+        "n_test":            len(test),
     }
     joblib.dump(payload, OUT, compress=3)
     size_mb = OUT.stat().st_size / 1_048_576

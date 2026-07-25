@@ -231,10 +231,13 @@ def main() -> None:
         xgb    = payload["model"]
         fcols  = payload["feature_cols"]
         fmt_c  = payload["fmt_cols"]
+        hod_c  = payload.get("hod_cols", [])
+        dow_c  = payload.get("dow_cols", [])
         thr    = payload["threshold"]
 
         train_out_deg = pd.Series(payload.get("train_out_deg", {}))
         train_in_deg  = pd.Series(payload.get("train_in_deg", {}))
+        train_amount_entropy = pd.Series(payload.get("train_amount_entropy", {}))
 
         df["sender_out_degree"]    = df["Account"].map(train_out_deg).fillna(0.0)
         df["receiver_in_degree"]   = df["Account.1"].map(train_in_deg).fillna(0.0)
@@ -242,6 +245,18 @@ def main() -> None:
             df["Payment Currency"].astype(str) != df["Receiving Currency"].astype(str)
         ).astype(int)
         df["log_amount_paid"] = np.log1p(df["Amount Paid"].astype("float64"))
+        df["amount_entropy"]  = df["Account"].map(train_amount_entropy).fillna(0.0)
+
+        # Time-of-day / day-of-week one-hot
+        hod_d = pd.get_dummies(df["Timestamp"].dt.hour, prefix="hod", dtype=int)
+        hod_d = hod_d.reindex(columns=hod_c, fill_value=0)
+        for col in hod_c:
+            df[col] = hod_d[col].values
+
+        dow_d = pd.get_dummies(df["Timestamp"].dt.dayofweek, prefix="dow", dtype=int)
+        dow_d = dow_d.reindex(columns=dow_c, fill_value=0)
+        for col in dow_c:
+            df[col] = dow_d[col].values
 
         fmt_d = pd.get_dummies(df["Payment Format"], prefix="fmt", dtype=int)
         fmt_d = fmt_d.reindex(columns=fmt_c, fill_value=0)

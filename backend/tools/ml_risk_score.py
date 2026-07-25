@@ -9,6 +9,9 @@ Features computed at inference time mirror the training features:
   receiver_in_degree   — distinct senders for receiver account in window
   is_currency_mismatch — always 0 (only one currency stored in DuckDB schema)
   log_amount_paid      — log1p(amount) as proxy for Amount Paid
+  amount_entropy       — Shannon entropy of discretised amounts per sender account
+  hod_*                — one-hot of hour-of-day (0-23)
+  dow_*                — one-hot of day-of-week (0=Mon..6=Sun)
   fmt_*                — one-hot of channel (Payment Format), categories from training
 
 Returns per-account max probability across all their transactions, plus the top
@@ -34,19 +37,24 @@ logger = logging.getLogger(__name__)
 _MODEL_PATH = Path(__file__).parent.parent / "data/models/xgb_baseline.joblib"
 
 # ── Load model at import time ──────────────────────────────────────────────────
-_model      = None
-_feat_cols  = None
-_fmt_cols   = None
-_threshold  = 0.5
-_MODEL_READY = False
+_model          = None
+_feat_cols      = None
+_fmt_cols       = None
+_hod_cols       = None
+_dow_cols       = None
+_threshold      = 0.5
+_MODEL_READY    = False
+_ENTROPY_BINS   = 10
 
 try:
-    _payload     = joblib.load(_MODEL_PATH)
-    _model       = _payload["model"]
-    _feat_cols   = _payload["feature_cols"]
-    _fmt_cols    = _payload["fmt_cols"]
-    _threshold   = _payload["threshold"]
-    _MODEL_READY = True
+    _payload        = joblib.load(_MODEL_PATH)
+    _model          = _payload["model"]
+    _feat_cols      = _payload["feature_cols"]
+    _fmt_cols       = _payload["fmt_cols"]
+    _hod_cols       = _payload.get("hod_cols", [])
+    _dow_cols       = _payload.get("dow_cols", [])
+    _threshold      = _payload["threshold"]
+    _MODEL_READY    = True
     logger.info("XGBoost baseline loaded from %s (threshold=%.4f)", _MODEL_PATH, _threshold)
 except FileNotFoundError:
     logger.warning(
@@ -139,6 +147,30 @@ def ml_risk_score(args: MLRiskScoreArgs) -> dict:
     df["receiver_in_degree"]   = df["receiver_account_id"].map(in_deg).fillna(0.0)
     df["is_currency_mismatch"] = 0          # only one currency column in DuckDB schema
     df["log_amount_paid"]      = np.log1p(df["amount"].astype("float64"))
+
+    # ── Amount entropy per sender account ─────────────────────────────────────
+    def _shannon_entropy(values):
+        if len(values) == 0:
+            return 0.0
+        counts, _ = np.histogram(values, bins=_ENTROPY_BINS)
+        probs = counts / counts.sum()
+        probs = probs[probs > 0]
+        return float(-np.sum(probs * np.log2(probs)))
+
+    acct_entropy = df.groupby("sender_account_id")["amount"].apply(
+        lambda s: _shannon_entropy(s.values.astype(float))
+    )
+    df["amount_entropy"] = df["sender_account_id"].map(acct_entropy).fillna(0.0)
+
+    # ── Time-of-day / day-of-week one-hot ─────────────────────────────────────
+    hod_dummies = pd.get_dummies(df["timestamp"].dt.hour, prefix="hod", dtype=int)
+    dow_dummies = pd.get_dummies(df["timestamp"].dt.dayofweek, prefix="dow", dtype=int)
+    hod_dummies = hod_dummies.reindex(columns=_hod_cols, fill_value=0)
+    dow_dummies = dow_dummies.reindex(columns=_dow_cols, fill_value=0)
+    for col in _hod_cols:
+        df[col] = hod_dummies[col].values
+    for col in _dow_cols:
+        df[col] = dow_dummies[col].values
 
     # ── Payment Format one-hot — categories fixed from training ───────────────
     fmt_dummies = pd.get_dummies(df["channel"].fillna(""), prefix="fmt", dtype=int)
