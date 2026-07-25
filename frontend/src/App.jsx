@@ -43,10 +43,10 @@ function LiveClock() {
 
 function Stat({ label, value, sub, accent = 'text-slate-100' }) {
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-xl px-4 py-3.5 space-y-1 min-w-0">
-      <p className="text-[9px] font-bold text-slate-600 uppercase tracking-[0.18em] truncate">{label}</p>
+    <div className="bg-slate-900/80 border border-slate-800/80 rounded-xl px-4 py-3.5 space-y-1 min-w-0 shadow-sm hover:border-slate-700/80 transition-colors">
+      <p className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.18em] truncate">{label}</p>
       <p className={`text-xl font-bold font-mono leading-none ${accent}`}>{value}</p>
-      {sub && <p className="text-[10px] text-slate-700 truncate">{sub}</p>}
+      {sub && <p className="text-[10px] text-slate-500 truncate">{sub}</p>}
     </div>
   )
 }
@@ -336,25 +336,35 @@ export default function App() {
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-20 bg-slate-900/95 backdrop-blur-sm border-b border-slate-800">
+      <header className="sticky top-0 z-20 bg-[#0b0f19]/90 backdrop-blur-md border-b border-slate-800/80">
         <div className="max-w-5xl mx-auto px-6 py-3 flex items-center justify-between gap-6">
-          <div>
-            <h1 className="text-sm font-bold text-blue-400 tracking-tight">FinSherlock AI</h1>
-            <p className="text-[10px] text-slate-600 mt-0.5">
-              Agentic AML Investigation Platform &middot; Soci&eacute;t&eacute; G&eacute;n&eacute;rale Hackathon
-            </p>
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-blue-600/20 border border-blue-500/40 flex items-center justify-center font-mono font-bold text-blue-400 text-sm shadow-sm">
+              FS
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-sm font-bold text-slate-100 tracking-tight">FinSherlock AI</h1>
+                <span className="px-2 py-0.5 rounded text-[9px] font-mono font-semibold bg-blue-950/60 text-blue-300 border border-blue-800/60">
+                  Soci&eacute;t&eacute; G&eacute;n&eacute;rale Hackathon
+                </span>
+              </div>
+              <p className="text-[10px] text-slate-500 mt-0.5">
+                Agentic Anti-Money Laundering Investigation Platform
+              </p>
+            </div>
           </div>
 
           <div className="flex items-center gap-5 shrink-0">
             {result && (
-              <div className="hidden sm:flex items-center gap-4 text-[10px] text-slate-600 font-mono">
+              <div className="hidden sm:flex items-center gap-4 text-[10px] text-slate-500 font-mono">
                 <span>{explanations.length} flagged</span>
                 <span className="w-px h-3 bg-slate-800" />
                 <span>{Object.values(timing).reduce((a, b) => a + b, 0).toFixed(2)}s</span>
               </div>
             )}
             <div className="w-px h-4 bg-slate-800 hidden sm:block" />
-            <div className="flex items-center gap-2 text-[10px] text-slate-600">
+            <div className="flex items-center gap-2 text-[10px] text-slate-400 font-mono">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
               localhost:8000
             </div>
