@@ -39,20 +39,28 @@ def _ensure_schema(conn: duckdb.DuckDBPyConnection) -> None:
 # the IBM AML Kaggle CSV (ealtman2019/ibm-transactions-for-anti-money-laundering-aml).
 # The loader prints what it actually maps so you can verify against your file.
 _IBM_AML_CANDIDATES: dict[str, list[str]] = {
+    # HI-Small has no transaction_id column — synthesised below when absent
     "transaction_id":      ["TRANSACTION_ID", "transaction_id", "id", "Index"],
     "timestamp":           ["TIMESTAMP", "timestamp", "Date", "Timestamp"],
-    "sender_account_id":   ["FROM_ACCOUNT", "from_account", "From Account", "Sender"],
-    "receiver_account_id": ["TO_ACCOUNT",   "to_account",   "To Account",   "Receiver"],
-    "amount":              ["AMOUNT", "amount", "Amount", "USD_AMOUNT"],
-    "currency":            ["CURRENCY", "currency", "Currency"],
+    # HI-Small: sender = first "Account" col (pandas keeps it as "Account")
+    "sender_account_id":   ["FROM_ACCOUNT", "from_account", "From Account", "Sender", "Account"],
+    # HI-Small: receiver = second "Account" col (pandas renames duplicate to "Account.1")
+    "receiver_account_id": ["TO_ACCOUNT", "to_account", "To Account", "Receiver", "Account.1"],
+    # HI-Small uses "Amount Received" or "Amount Paid"
+    "amount":              ["AMOUNT", "amount", "Amount", "USD_AMOUNT", "Amount Received", "Amount Paid"],
+    # HI-Small: "Receiving Currency" or "Payment Currency"
+    "currency":            ["CURRENCY", "currency", "Currency", "Receiving Currency", "Payment Currency"],
     "transaction_type":    ["TRANSACTION_TYPE", "transaction_type", "Type", "Payment Type"],
     "country":             ["FROM_COUNTRY", "from_country", "Country", "From Bank Country"],
+    # HI-Small: "Payment Format" maps to channel
     "channel":             ["CHANNEL", "channel", "Channel", "Payment Format"],
-    "is_laundering":       ["IS_LAUNDERING", "is_laundering", "Laundering", "Label"],
+    # HI-Small: "Is Laundering" (with space) — matched via case-insensitive check
+    "is_laundering":       ["IS_LAUNDERING", "is_laundering", "Laundering", "Label", "Is Laundering"],
 }
 
 # Columns we can tolerate being absent (will be filled with NULL / default).
-_OPTIONAL_COLS = {"currency", "transaction_type", "country", "channel", "is_laundering"}
+# transaction_id is synthesised when absent, so it is also optional here.
+_OPTIONAL_COLS = {"transaction_id", "currency", "transaction_type", "country", "channel", "is_laundering"}
 
 
 def _resolve_column_mapping(df_cols: list[str]) -> dict[str, Optional[str]]:
