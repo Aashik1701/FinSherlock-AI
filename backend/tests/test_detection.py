@@ -420,3 +420,130 @@ class TestExplainFlag:
         result = call_tool("explain_flag", {"classify_output": _make_classify_output()})
         assert isinstance(result["explanations"][0]["explanation"], str)
         assert len(result["explanations"][0]["explanation"]) > 20
+
+
+# =============================================================================
+# Terminology isolation — guard regulatory language per typology
+# =============================================================================
+
+def _make_smurfing_classify_output(account_id: str = "SMURF_99") -> dict:
+    """Classify output built from smurfing signals only (no structuring)."""
+    return {
+        "classifications": [
+            {
+                "account_id": account_id,
+                "risk_level": "high",
+                "risk_score": 75.0,
+                "escalation": "report",
+                "contributing_signals": [
+                    {
+                        "signal": "smurfing_fan_out",
+                        "value":  6,
+                        "label":  "fan-out to 6 distinct counterparties within 30 days",
+                        "weight": 0.75,
+                    },
+                    {
+                        "signal": "smurfing_total_amount",
+                        "value":  9000.0,
+                        "label":  "total amount sent $9,000.00",
+                        "weight": 0.2,
+                    },
+                ],
+            }
+        ]
+    }
+
+
+def _make_layering_classify_output(account_id: str = "LAYER_01") -> dict:
+    """Classify output built from layering signals only (no structuring)."""
+    return {
+        "classifications": [
+            {
+                "account_id": account_id,
+                "risk_level": "medium",
+                "risk_score": 50.0,
+                "escalation": "review",
+                "contributing_signals": [
+                    {
+                        "signal": "layering_path_length",
+                        "value":  3,
+                        "label":  "3-hop chain detected (L1 → L2 → L3 → L4)",
+                        "weight": 0.5,
+                    },
+                    {
+                        "signal": "layering_total_amount",
+                        "value":  50000.0,
+                        "label":  "total amount layered $50,000.00",
+                        "weight": 0.3,
+                    },
+                ],
+            }
+        ]
+    }
+
+
+class TestExplainerTerminology:
+    """Guard against cross-typology terminology contamination."""
+
+    def test_smurfing_word_absent_from_structuring_explanation(self):
+        classify_out = _make_classify_output(risk_level="high")
+        result = call_tool("explain_flag", {"classify_output": classify_out, "target_pattern": "structuring"})
+        for exp in result["explanations"]:
+            assert "smurfing" not in exp["explanation"].lower(), (
+                "'smurfing' must not appear in a structuring-only explanation"
+            )
+
+    def test_structuring_word_absent_from_smurfing_explanation(self):
+        result = call_tool("explain_flag", {"classify_output": _make_smurfing_classify_output()})
+        for exp in result["explanations"]:
+            assert "structuring" not in exp["explanation"].lower(), (
+                "'structuring' must not appear in a smurfing-only explanation"
+            )
+
+    def test_ctr_language_present_in_structuring_explanation(self):
+        classify_out = _make_classify_output(risk_level="high")
+        result = call_tool("explain_flag", {"classify_output": classify_out})
+        text = result["explanations"][0]["explanation"]
+        assert "CTR" in text or "Currency Transaction Report" in text
+
+    def test_ctr_language_absent_from_smurfing_explanation(self):
+        result = call_tool("explain_flag", {"classify_output": _make_smurfing_classify_output()})
+        text = result["explanations"][0]["explanation"]
+        assert "CTR" not in text
+        assert "Currency Transaction Report" not in text
+
+    def test_sar_language_present_in_smurfing_explanation(self):
+        result = call_tool("explain_flag", {"classify_output": _make_smurfing_classify_output()})
+        text = result["explanations"][0]["explanation"]
+        assert "SAR" in text or "Suspicious Activity Report" in text
+
+    def test_sar_language_present_in_layering_explanation(self):
+        result = call_tool("explain_flag", {"classify_output": _make_layering_classify_output()})
+        text = result["explanations"][0]["explanation"]
+        assert "SAR" in text or "Suspicious Activity Report" in text
+
+    def test_smurfing_word_absent_from_layering_explanation(self):
+        result = call_tool("explain_flag", {"classify_output": _make_layering_classify_output()})
+        for exp in result["explanations"]:
+            assert "smurfing" not in exp["explanation"].lower(), (
+                "'smurfing' must not appear in a layering-only explanation"
+            )
+
+    def test_ctr_language_absent_from_layering_explanation(self):
+        result = call_tool("explain_flag", {"classify_output": _make_layering_classify_output()})
+        text = result["explanations"][0]["explanation"]
+        assert "CTR" not in text
+        assert "Currency Transaction Report" not in text
+
+    def test_layering_grounding_holds(self):
+        classify_out = _make_layering_classify_output()
+        result = call_tool("explain_flag", {"classify_output": classify_out})
+        exp = result["explanations"][0]
+        signal_labels = {
+            s["label"]
+            for s in classify_out["classifications"][0]["contributing_signals"]
+        }
+        for cited in exp["evidence_cited"]:
+            assert cited in signal_labels, (
+                f"Cited '{cited}' not in signal labels {signal_labels}"
+            )

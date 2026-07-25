@@ -32,6 +32,8 @@ logger = logging.getLogger(__name__)
 _INJECT: dict[str, str] = {
     "structuring_output": "detect_structuring",
     "anomaly_output":     "detect_anomalies",
+    "smurfing_output":    "detect_smurfing",
+    "layering_output":    "detect_layering",
     "classify_output":    "classify_risk",
 }
 

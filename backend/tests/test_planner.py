@@ -87,9 +87,23 @@ class TestSmurfingDetection:
         plan = deterministic_fallback_plan("Check for fan-in transactions converging to one account")
         assert plan["target_pattern"] == "smurfing"
 
+    def test_multiple_accounts_keyword(self):
+        plan = deterministic_fallback_plan("Check for multiple accounts receiving funds")
+        assert plan["target_pattern"] == "smurfing"
+
     def test_smurfing_intent_is_pattern_scan(self):
         plan = deterministic_fallback_plan("smurf detection please")
         assert plan["intent"] == "pattern_scan"
+
+    def test_smurfing_uses_detect_smurfing(self):
+        names = _tool_names(deterministic_fallback_plan("find smurf accounts"))
+        assert "detect_smurfing" in names
+        assert "detect_anomalies" not in names
+
+    def test_smurfing_injection_placeholder_present(self):
+        plan = deterministic_fallback_plan("smurf detection please")
+        cr_step = next(s for s in plan["plan"] if s["tool"] == "classify_risk")
+        assert "smurfing_output" in cr_step["args"]
 
     def test_smurfing_all_tools_registered(self):
         _assert_all_tools_registered(deterministic_fallback_plan("find smurf accounts"))
@@ -112,9 +126,23 @@ class TestLayeringDetection:
         plan = deterministic_fallback_plan("Find transactions with multiple hops")
         assert plan["target_pattern"] == "layering"
 
+    def test_network_keyword(self):
+        plan = deterministic_fallback_plan("Analyze transaction network for suspicious patterns")
+        assert plan["target_pattern"] == "layering"
+
     def test_layering_intent_is_pattern_scan(self):
         plan = deterministic_fallback_plan("layering detection")
         assert plan["intent"] == "pattern_scan"
+
+    def test_layering_uses_detect_layering(self):
+        names = _tool_names(deterministic_fallback_plan("find layering"))
+        assert "detect_layering" in names
+        assert "detect_anomalies" not in names
+
+    def test_layering_injection_placeholder_present(self):
+        plan = deterministic_fallback_plan("layering detection")
+        cr_step = next(s for s in plan["plan"] if s["tool"] == "classify_risk")
+        assert "layering_output" in cr_step["args"]
 
     def test_layering_all_tools_registered(self):
         _assert_all_tools_registered(deterministic_fallback_plan("find layering"))

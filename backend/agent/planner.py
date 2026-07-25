@@ -267,17 +267,21 @@ def deterministic_fallback_plan(query: str) -> dict:
         }
 
     # 2. Smurfing ——————————————————————————————————————————————————————————————
-    if re.search(r"smurf|fan[\s-]out|fan[\s-]in|multiple\s+sender|multiple\s+receiver", q):
+    if re.search(
+        r"smurf|fan[\s-]out|fan[\s-]in|multiple\s+sender|multiple\s+receiver"
+        r"|multiple\s+accounts?",
+        q,
+    ):
         return {
             "intent": "pattern_scan",
             "filters": base_filters,
             "target_pattern": "smurfing",
             "plan": [
-                {"tool": "run_eda",            "args": {}},
-                {"tool": "engineer_features",  "args": {"window_days": window_days, "persist": False}},
-                {"tool": "detect_anomalies",   "args": {"window_days": window_days}},
-                {"tool": "classify_risk",      "args": {"anomaly_output": None}},
-                {"tool": "explain_flag",       "args": {"classify_output": None, "target_pattern": "smurfing"}},
+                {"tool": "run_eda",           "args": {}},
+                {"tool": "engineer_features", "args": {"window_days": window_days, "persist": False}},
+                {"tool": "detect_smurfing",   "args": {"window_days": window_days}},
+                {"tool": "classify_risk",     "args": {"smurfing_output": None}},
+                {"tool": "explain_flag",      "args": {"classify_output": None, "target_pattern": "smurfing"}},
             ],
             "planner_source": "deterministic",
         }
@@ -289,11 +293,11 @@ def deterministic_fallback_plan(query: str) -> dict:
             "filters": base_filters,
             "target_pattern": "structuring",
             "plan": [
-                {"tool": "run_eda",             "args": {}},
-                {"tool": "engineer_features",   "args": {"window_days": window_days, "persist": False}},
-                {"tool": "detect_structuring",  "args": {"window_days": window_days}},
-                {"tool": "classify_risk",       "args": {"structuring_output": None}},
-                {"tool": "explain_flag",        "args": {"classify_output": None, "target_pattern": "structuring"}},
+                {"tool": "run_eda",            "args": {}},
+                {"tool": "engineer_features",  "args": {"window_days": window_days, "persist": False}},
+                {"tool": "detect_structuring", "args": {"window_days": window_days}},
+                {"tool": "classify_risk",      "args": {"structuring_output": None}},
+                {"tool": "explain_flag",       "args": {"classify_output": None, "target_pattern": "structuring"}},
             ],
             "planner_source": "deterministic",
         }
@@ -301,17 +305,20 @@ def deterministic_fallback_plan(query: str) -> dict:
     # 4. Layering —————————————————————————————————————————————————————————————
     # \bhops? covers both "hop" and "hops"; word boundary before prevents false
     # matches on words like "shop".
-    if re.search(r"layer|chain|multi[\s-]hop|\bhops?|intermediar|pass[\s-]through|obscur", q):
+    if re.search(
+        r"layer|chain|multi[\s-]hop|\bhops?|intermediar|pass[\s-]through|obscur|network",
+        q,
+    ):
         return {
             "intent": "pattern_scan",
             "filters": base_filters,
             "target_pattern": "layering",
             "plan": [
-                {"tool": "run_eda",            "args": {}},
-                {"tool": "engineer_features",  "args": {"window_days": window_days, "persist": False}},
-                {"tool": "detect_anomalies",   "args": {"window_days": window_days}},
-                {"tool": "classify_risk",      "args": {"anomaly_output": None}},
-                {"tool": "explain_flag",       "args": {"classify_output": None, "target_pattern": "layering"}},
+                {"tool": "run_eda",           "args": {}},
+                {"tool": "engineer_features", "args": {"window_days": window_days, "persist": False}},
+                {"tool": "detect_layering",   "args": {"window_days": window_days}},
+                {"tool": "classify_risk",     "args": {"layering_output": None}},
+                {"tool": "explain_flag",      "args": {"classify_output": None, "target_pattern": "layering"}},
             ],
             "planner_source": "deterministic",
         }
