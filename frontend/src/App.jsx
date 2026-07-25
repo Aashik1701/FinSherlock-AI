@@ -4,6 +4,7 @@ import ExecutionPlan from './ExecutionPlan'
 import FindingCard   from './FindingCard'
 import MetricsPanel  from './MetricsPanel'
 import HeatmapView   from './HeatmapView'
+import ErrorBoundary from './ErrorBoundary'
 
 const API_BASE = 'http://localhost:8000'
 
@@ -384,40 +385,42 @@ export default function App() {
 
         {/* Results — rendered progressively as stream events arrive */}
         {result && (
-          <div className="space-y-8">
+          <ErrorBoundary>
+            <div className="space-y-8">
 
-            <ExecutionPlan
-              plan={plan}
-              plannerSource={plannerSource}
-              timing={timing}
-              errors={errors}
-              toolStatus={toolStatus}
-              fullResult={result}
-            />
+              <ExecutionPlan
+                plan={plan}
+                plannerSource={plannerSource}
+                timing={timing}
+                errors={errors}
+                toolStatus={toolStatus}
+                fullResult={result}
+              />
 
-            <DatasetOverview
-              eda={eda}
-              engineerFeatures={engineerFeatures}
-              structuringData={structuringData}
-              smurfingData={smurfingData}
-              layeringData={layeringData}
-              explanations={explanations}
-            />
+              <DatasetOverview
+                eda={eda}
+                engineerFeatures={engineerFeatures}
+                structuringData={structuringData}
+                smurfingData={smurfingData}
+                layeringData={layeringData}
+                explanations={explanations}
+              />
 
-            {eda && <HeatmapView edaData={eda} />}
+              {eda && <HeatmapView edaData={eda} />}
 
-            <FindingsSection
-              explanations={explanations}
-              structuringData={structuringData}
-              smurfingData={smurfingData}
-              layeringData={layeringData}
-              classifyData={classifyData}
-            />
+              <FindingsSection
+                explanations={explanations}
+                structuringData={structuringData}
+                smurfingData={smurfingData}
+                layeringData={layeringData}
+                classifyData={classifyData}
+              />
 
-            {!loading && <MetricsPanel />}
+              {!loading && <MetricsPanel />}
 
-            {!loading && <RawResponse data={result} />}
-          </div>
+              {!loading && <RawResponse data={result} />}
+            </div>
+          </ErrorBoundary>
         )}
       </main>
 

@@ -142,6 +142,19 @@ def run_eda(args: EDAArgs) -> dict:
         ).df()
         label_dist = label_df.to_dict(orient="records")
 
+    # --- Hourly temporal distribution (0-23) ---
+    hourly_df: pd.DataFrame = conn.execute(
+        f"""
+        SELECT
+            EXTRACT(HOUR FROM timestamp)::INT AS hour,
+            COUNT(*) AS count
+        {base_query}
+        GROUP BY hour
+        ORDER BY hour
+        """
+    ).df()
+    hourly_counts = {int(r["hour"]): int(r["count"]) for _, r in hourly_df.iterrows()}
+
     return {
         "total_rows":           total_rows,
         "date_range":           date_range,
@@ -151,4 +164,5 @@ def run_eda(args: EDAArgs) -> dict:
         "amount_stats":         amount_stats,
         "missing_values":       missing_values,
         "laundering_label_dist": label_dist,
+        "temporal_distribution": {"hourly": hourly_counts},
     }

@@ -110,7 +110,7 @@ export default function MetricsPanel() {
           {error && (
             <p className="text-xs text-red-400 text-center py-4">Failed to load metrics: {error}</p>
           )}
-          {metrics && (
+          {metrics && metrics.dataset && (
             <>
               {/* Naive baseline callout */}
               {nb && (
@@ -122,10 +122,10 @@ export default function MetricsPanel() {
                         Naive Baseline: flag any account with txn ≥ $10,000
                       </p>
                       <p className="text-[10px] text-red-500/80">
-                        {nb.flagged.toLocaleString()} accounts flagged ·
-                        Precision {(nb.precision * 100).toFixed(2)}% ·
-                        Recall {(nb.recall * 100).toFixed(1)}% ·
-                        F1 {(nb.f1 * 100).toFixed(2)}%
+                        {nb.flagged?.toLocaleString() ?? 0} accounts flagged ·
+                        Precision {((nb.precision ?? 0) * 100).toFixed(2)}% ·
+                        Recall {((nb.recall ?? 0) * 100).toFixed(1)}% ·
+                        F1 {((nb.f1 ?? 0) * 100).toFixed(2)}%
                       </p>
                       <p className="text-[10px] text-slate-600 italic">
                         This is the "traditional approach" problem — excessive false positives, low precision
@@ -136,16 +136,18 @@ export default function MetricsPanel() {
               )}
 
               {/* Rule-based cards */}
-              <div>
-                <h3 className="text-[9px] font-bold text-slate-600 uppercase tracking-[0.2em] mb-3">
-                  FinSherlock Detection Rules
-                </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  {metrics.rules.map((rule, i) => (
-                    <RuleCard key={i} rule={rule} naive={nb} />
-                  ))}
+              {Array.isArray(metrics.rules) && (
+                <div>
+                  <h3 className="text-[9px] font-bold text-slate-600 uppercase tracking-[0.2em] mb-3">
+                    FinSherlock Detection Rules
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {metrics.rules.map((rule, i) => (
+                      <RuleCard key={i} rule={rule} naive={nb} />
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* XGBoost model */}
               {xgb && (
@@ -165,11 +167,13 @@ export default function MetricsPanel() {
               )}
 
               {/* Dataset summary */}
-              <div className="text-[9px] text-slate-700 text-center font-mono">
-                IBM HI-Small AML · {metrics.dataset.total_rows.toLocaleString()} transactions ·
-                {' '}{metrics.dataset.labeled_laundering.toLocaleString()} labeled laundering
-                ({metrics.dataset.laundering_rate_pct}%)
-              </div>
+              {metrics.dataset && (
+                <div className="text-[9px] text-slate-700 text-center font-mono">
+                  IBM HI-Small AML · {metrics.dataset.total_rows?.toLocaleString() ?? 0} transactions ·
+                  {' '}{metrics.dataset.labeled_laundering?.toLocaleString() ?? 0} labeled laundering
+                  ({metrics.dataset.laundering_rate_pct ?? 0}%)
+                </div>
+              )}
             </>
           )}
         </div>

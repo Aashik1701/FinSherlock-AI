@@ -4,13 +4,11 @@ const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 const HOURS = Array.from({ length: 24 }, (_, i) => i)
 
 export default function HeatmapView({ edaData }) {
-  if (!edaData?.temporal_distribution?.hourly && !edaData?.amount_stats) {
-    // Generate an illustrative hour-of-day distribution based on standard banking / anomaly hours if full EDA data isn't expanded
+  const hourly = edaData?.temporal_distribution?.hourly
+  if (!hourly || Object.keys(hourly).length === 0) {
     return null
   }
 
-  const hourly = edaData?.temporal_distribution?.hourly || {}
-  
   // Compute max count for color scaling
   const maxVal = Math.max(...Object.values(hourly), 1)
 
