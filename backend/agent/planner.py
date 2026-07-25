@@ -71,14 +71,29 @@ Use exactly this structure:
   "planner_source": "llm"
 }}
 
-Selection rules:
-- broad_exploration / no clear pattern → run_eda + engineer_features
-- "structuring" / "threshold" / "cash" → pattern_scan + structuring + run_eda + engineer_features
-- "smurfing" / "smurf" / "fan-out" / "fan out" → pattern_scan + smurfing + engineer_features
-- "layering" / "chain" / "hop" / "intermediary" → pattern_scan + layering + run_eda + engineer_features
-- "customer <id>" / "account <id>" / "explain <id>" → single_entity_lookup, engineer_features with account_ids set
-- Extract date windows from "last N days" → set window_days and date filters
-- Keep the plan MINIMAL — only include tools genuinely needed.
+IMPORTANT: classify_risk and explain_flag receive prior tool outputs via injection.
+Set structuring_output, anomaly_output, and classify_output to null in their args —
+the orchestrator fills them automatically at runtime.
+
+Standard chain patterns (use these exactly):
+
+Structuring query:
+  run_eda → engineer_features → detect_structuring
+  → classify_risk(structuring_output=null) → explain_flag(classify_output=null, target_pattern="structuring")
+
+Single-entity / customer query:
+  engineer_features(account_ids=[id]) → detect_anomalies(account_ids=[id])
+  → classify_risk(anomaly_output=null, account_id=id) → explain_flag(classify_output=null, account_id=id)
+
+Smurfing / layering / generic anomaly query:
+  run_eda → engineer_features → detect_anomalies
+  → classify_risk(anomaly_output=null) → explain_flag(classify_output=null, target_pattern=<pattern>)
+
+Broad exploration:
+  run_eda → engineer_features → detect_anomalies
+  → classify_risk(anomaly_output=null) → explain_flag(classify_output=null)
+
+Extract date windows from "last N days" → set window_days.
 """
 
 
@@ -233,12 +248,20 @@ def deterministic_fallback_plan(query: str) -> dict:
             "plan": [
                 {
                     "tool": "engineer_features",
-                    "args": {
-                        "account_ids": [entity_id],
-                        "window_days": window_days,
-                        "persist": False,
-                    },
-                }
+                    "args": {"account_ids": [entity_id], "window_days": window_days, "persist": False},
+                },
+                {
+                    "tool": "detect_anomalies",
+                    "args": {"account_ids": [entity_id], "window_days": window_days},
+                },
+                {
+                    "tool": "classify_risk",
+                    "args": {"anomaly_output": None, "account_id": entity_id},
+                },
+                {
+                    "tool": "explain_flag",
+                    "args": {"classify_output": None, "account_id": entity_id},
+                },
             ],
             "planner_source": "deterministic",
         }
@@ -250,11 +273,11 @@ def deterministic_fallback_plan(query: str) -> dict:
             "filters": base_filters,
             "target_pattern": "smurfing",
             "plan": [
-                {"tool": "run_eda", "args": {}},
-                {
-                    "tool": "engineer_features",
-                    "args": {"window_days": window_days, "persist": False},
-                },
+                {"tool": "run_eda",            "args": {}},
+                {"tool": "engineer_features",  "args": {"window_days": window_days, "persist": False}},
+                {"tool": "detect_anomalies",   "args": {"window_days": window_days}},
+                {"tool": "classify_risk",      "args": {"anomaly_output": None}},
+                {"tool": "explain_flag",       "args": {"classify_output": None, "target_pattern": "smurfing"}},
             ],
             "planner_source": "deterministic",
         }
@@ -266,11 +289,11 @@ def deterministic_fallback_plan(query: str) -> dict:
             "filters": base_filters,
             "target_pattern": "structuring",
             "plan": [
-                {"tool": "run_eda", "args": {}},
-                {
-                    "tool": "engineer_features",
-                    "args": {"window_days": window_days, "persist": False},
-                },
+                {"tool": "run_eda",             "args": {}},
+                {"tool": "engineer_features",   "args": {"window_days": window_days, "persist": False}},
+                {"tool": "detect_structuring",  "args": {"window_days": window_days}},
+                {"tool": "classify_risk",       "args": {"structuring_output": None}},
+                {"tool": "explain_flag",        "args": {"classify_output": None, "target_pattern": "structuring"}},
             ],
             "planner_source": "deterministic",
         }
@@ -284,11 +307,11 @@ def deterministic_fallback_plan(query: str) -> dict:
             "filters": base_filters,
             "target_pattern": "layering",
             "plan": [
-                {"tool": "run_eda", "args": {}},
-                {
-                    "tool": "engineer_features",
-                    "args": {"window_days": window_days, "persist": False},
-                },
+                {"tool": "run_eda",            "args": {}},
+                {"tool": "engineer_features",  "args": {"window_days": window_days, "persist": False}},
+                {"tool": "detect_anomalies",   "args": {"window_days": window_days}},
+                {"tool": "classify_risk",      "args": {"anomaly_output": None}},
+                {"tool": "explain_flag",       "args": {"classify_output": None, "target_pattern": "layering"}},
             ],
             "planner_source": "deterministic",
         }
@@ -299,11 +322,11 @@ def deterministic_fallback_plan(query: str) -> dict:
         "filters": base_filters,
         "target_pattern": None,
         "plan": [
-            {"tool": "run_eda", "args": {}},
-            {
-                "tool": "engineer_features",
-                "args": {"window_days": window_days, "persist": False},
-            },
+            {"tool": "run_eda",            "args": {}},
+            {"tool": "engineer_features",  "args": {"window_days": window_days, "persist": False}},
+            {"tool": "detect_anomalies",   "args": {"window_days": window_days}},
+            {"tool": "classify_risk",      "args": {"anomaly_output": None}},
+            {"tool": "explain_flag",       "args": {"classify_output": None}},
         ],
         "planner_source": "deterministic",
     }

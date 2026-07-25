@@ -106,6 +106,8 @@ def patch_db(mem_conn, monkeypatch):
 
     import tools.eda as eda_mod
     import tools.feature_engineering as fe_mod
+    import tools.anomaly_detection as ad_mod
 
     monkeypatch.setattr(eda_mod, "get_connection", lambda: mem_conn)
     monkeypatch.setattr(fe_mod, "get_connection", lambda: mem_conn)
+    monkeypatch.setattr(ad_mod, "get_connection", lambda: mem_conn)

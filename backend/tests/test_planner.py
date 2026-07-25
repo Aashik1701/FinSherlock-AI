@@ -52,11 +52,14 @@ class TestStructuringDetection:
         plan = deterministic_fallback_plan("Suspicious cash deposits in the last 30 days")
         assert plan["target_pattern"] == "structuring"
 
-    def test_structuring_includes_eda_and_features(self):
+    def test_structuring_includes_full_chain(self):
         plan = deterministic_fallback_plan("Detect structuring activity")
         names = _tool_names(plan)
-        assert "run_eda" in names
-        assert "engineer_features" in names
+        assert "run_eda"            in names
+        assert "engineer_features"  in names
+        assert "detect_structuring" in names
+        assert "classify_risk"      in names
+        assert "explain_flag"       in names
 
     def test_structuring_all_tools_registered(self):
         plan = deterministic_fallback_plan("Look for structuring")
@@ -137,9 +140,13 @@ class TestSingleEntityLookup:
         assert plan["intent"] == "single_entity_lookup"
         assert plan["filters"]["account_ids"] == ["XYZ-99"]
 
-    def test_single_entity_uses_engineer_features(self):
+    def test_single_entity_uses_full_chain(self):
         plan = deterministic_fallback_plan("Explain customer 42")
-        assert "engineer_features" in _tool_names(plan)
+        names = _tool_names(plan)
+        assert "engineer_features" in names
+        assert "detect_anomalies"  in names
+        assert "classify_risk"     in names
+        assert "explain_flag"      in names
 
     def test_single_entity_skips_eda(self):
         # EDA is a dataset-wide scan — pointless for a single-entity query
@@ -150,6 +157,14 @@ class TestSingleEntityLookup:
         plan = deterministic_fallback_plan("account ACC_B")
         fe_step = next(s for s in plan["plan"] if s["tool"] == "engineer_features")
         assert "ACC_B" in fe_step["args"]["account_ids"]
+
+    def test_injection_placeholders_present_in_classify_and_explain(self):
+        # classify_risk and explain_flag must carry null placeholders for injection
+        plan = deterministic_fallback_plan("account ACC_B")
+        cr_step = next(s for s in plan["plan"] if s["tool"] == "classify_risk")
+        ef_step = next(s for s in plan["plan"] if s["tool"] == "explain_flag")
+        assert "anomaly_output"  in cr_step["args"]
+        assert "classify_output" in ef_step["args"]
 
     def test_single_entity_all_tools_registered(self):
         _assert_all_tools_registered(deterministic_fallback_plan("customer 999"))
@@ -191,10 +206,14 @@ class TestBroadExploration:
         plan = deterministic_fallback_plan("what is going on")
         assert plan["intent"] == "broad_exploration"
 
-    def test_broad_exploration_includes_both_tools(self):
+    def test_broad_exploration_includes_full_chain(self):
         plan = deterministic_fallback_plan("run a full scan")
-        assert "run_eda" in _tool_names(plan)
-        assert "engineer_features" in _tool_names(plan)
+        names = _tool_names(plan)
+        assert "run_eda"           in names
+        assert "engineer_features" in names
+        assert "detect_anomalies"  in names
+        assert "classify_risk"     in names
+        assert "explain_flag"      in names
 
     def test_broad_exploration_all_tools_registered(self):
         _assert_all_tools_registered(deterministic_fallback_plan("scan everything"))
