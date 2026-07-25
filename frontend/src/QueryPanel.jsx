@@ -139,7 +139,29 @@ export default function QueryPanel({ onSubmit, loading }) {
         </button>
       </div>
 
-      {/* Typology preset cards */}
+      {/* Preset demo chips */}
+      <div className="flex flex-wrap items-center gap-2 text-[10px]">
+        <span className="text-slate-600 font-mono">Demo Presets:</span>
+        <button
+          onClick={() => run("Find structuring patterns in recent transactions")}
+          className="px-2.5 py-1 rounded-lg border border-slate-800 bg-slate-900/80 hover:bg-slate-800 text-sky-400 font-mono transition-colors"
+        >
+          Structuring ($9,500–$9,900)
+        </button>
+        <button
+          onClick={() => run("Are there smurfing or fan-out patterns across multiple accounts?")}
+          className="px-2.5 py-1 rounded-lg border border-slate-800 bg-slate-900/80 hover:bg-slate-800 text-violet-400 font-mono transition-colors"
+        >
+          Smurfing (Fan-out ≥ 3)
+        </button>
+        <button
+          onClick={() => run("Investigate customer ACC_BENIGN_5K with $5,000 deposits")}
+          className="px-2.5 py-1 rounded-lg border border-emerald-900/50 bg-emerald-950/20 hover:bg-emerald-900/40 text-emerald-400 font-mono transition-colors"
+          title="Adversarial query: verify system does NOT flag benign sub-threshold activity"
+        >
+          🛡 Benign Test ($5,000 - No Flag)
+        </button>
+      </div>
       <div className="grid grid-cols-3 gap-4">
         {TYPOLOGIES.map(t => (
           <button

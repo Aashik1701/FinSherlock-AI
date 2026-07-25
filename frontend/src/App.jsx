@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import QueryPanel    from './QueryPanel'
 import ExecutionPlan from './ExecutionPlan'
 import FindingCard   from './FindingCard'
+import MetricsPanel  from './MetricsPanel'
+import HeatmapView   from './HeatmapView'
 
 const API_BASE = 'http://localhost:8000'
 
@@ -390,6 +392,7 @@ export default function App() {
               timing={timing}
               errors={errors}
               toolStatus={toolStatus}
+              fullResult={result}
             />
 
             <DatasetOverview
@@ -401,6 +404,8 @@ export default function App() {
               explanations={explanations}
             />
 
+            {eda && <HeatmapView edaData={eda} />}
+
             <FindingsSection
               explanations={explanations}
               structuringData={structuringData}
@@ -408,6 +413,8 @@ export default function App() {
               layeringData={layeringData}
               classifyData={classifyData}
             />
+
+            {!loading && <MetricsPanel />}
 
             {!loading && <RawResponse data={result} />}
           </div>

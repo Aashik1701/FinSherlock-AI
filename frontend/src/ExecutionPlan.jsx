@@ -25,9 +25,28 @@ function PlannerBadge({ source }) {
   )
 }
 
-export default function ExecutionPlan({ plan = [], plannerSource, timing = {}, errors = [], toolStatus = {} }) {
+export default function ExecutionPlan({ plan = [], plannerSource, timing = {}, errors = [], toolStatus = {}, fullResult = null }) {
   const totalTime = Object.values(timing).reduce((a, b) => a + b, 0)
   const maxTime   = Math.max(...Object.values(timing), 0.001)
+
+  const handleExportAudit = () => {
+    const auditData = {
+      timestamp: new Date().toISOString(),
+      planner_source: plannerSource,
+      wall_clock_seconds: totalTime,
+      plan_steps: plan,
+      step_timing: timing,
+      errors: errors,
+      full_result: fullResult
+    }
+    const blob = new Blob([JSON.stringify(auditData, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `fin_sherlock_audit_log_${Date.now()}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
 
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
@@ -41,7 +60,16 @@ export default function ExecutionPlan({ plan = [], plannerSource, timing = {}, e
             {plan.length} tools · {totalTime > 0 ? `${totalTime.toFixed(2)}s wall-clock` : 'running…'}
           </p>
         </div>
-        <PlannerBadge source={plannerSource} />
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleExportAudit}
+            className="px-2.5 py-1 rounded border border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-[10px] font-mono text-slate-300 transition-colors"
+            title="Download complete decision audit log as JSON"
+          >
+            ↓ Export Audit Log
+          </button>
+          <PlannerBadge source={plannerSource} />
+        </div>
       </div>
 
       {/* Steps */}

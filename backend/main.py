@@ -154,6 +154,47 @@ def investigate_stream(request: InvestigateRequest) -> StreamingResponse:
     )
 
 
+# ---------------------------------------------------------------------------
+# Metrics endpoint — precision/recall/F1 against ground-truth labels
+# ---------------------------------------------------------------------------
+
+_cached_metrics: dict | None = None
+
+
+@app.get("/metrics", tags=["meta"])
+def get_metrics(limit: int = 500_000) -> dict:
+    """
+    Evaluate detection tools against IBM AML ground-truth labels.
+
+    Returns precision/recall/F1 for each rule-based detector, a naive baseline
+    comparison, and false-positive reduction percentages.
+
+    Results are cached in-memory after the first call since the dataset is static.
+    """
+    global _cached_metrics
+    if _cached_metrics is not None:
+        return _cached_metrics
+
+    from pathlib import Path
+    try:
+        from scripts.evaluate_detection import run_evaluation
+
+        csv_path = Path(__file__).parent / "data/raw/HI-Small_Trans.csv"
+        if not csv_path.exists():
+            raise HTTPException(
+                status_code=404,
+                detail="HI-Small_Trans.csv not found. Place the IBM AML dataset in backend/data/raw/",
+            )
+
+        _cached_metrics = run_evaluation(csv_path=csv_path, limit=limit)
+        return _cached_metrics
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except Exception as exc:
+        logger.exception("Metrics evaluation failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
 # Register one POST /tools/{name} per entry in TOOL_REGISTRY at startup
 for _name, _entry in TOOL_REGISTRY.items():
     _handler = _make_tool_handler(_name)

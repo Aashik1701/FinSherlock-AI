@@ -308,6 +308,17 @@ def explain_flag(args: ExplainFlagArgs) -> dict:
             evidence_cited = [s["label"] for s in signals]
             summary = f"Account {account_id}: {risk_level.upper()} risk — {len(signals)} signal(s)"
 
+        # Counterfactual explanation generation
+        counterfactual = None
+        if has_structuring:
+            counterfactual = "If near-threshold deposits were spaced with ≤1 sub-threshold transaction per 30-day window, this account would not have tripped the BSA structuring rule."
+        elif has_smurfing:
+            counterfactual = "If transaction counterparties were restricted to <3 distinct accounts, fan-out/fan-in dispersion thresholds would not have been exceeded."
+        elif has_layering:
+            counterfactual = "If pass-through transfers did not occur across ≥3 hops within 24 hours, the layering chain detector would not have triggered."
+        elif has_anomaly:
+            counterfactual = "If transaction velocity and amounts were within 2 standard deviations of historical account baselines, the anomaly score would remain below 0.55."
+
         explanations.append({
             "account_id":     account_id,
             "risk_level":     risk_level,
@@ -316,6 +327,7 @@ def explain_flag(args: ExplainFlagArgs) -> dict:
             "instruction":    instruction,
             "summary":        summary,
             "explanation":    explanation,
+            "counterfactual": counterfactual,
             "evidence_cited": evidence_cited,
         })
 
