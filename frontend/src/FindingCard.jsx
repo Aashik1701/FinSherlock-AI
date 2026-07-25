@@ -1,5 +1,6 @@
 import RiskGauge from './RiskGauge'
 import GraphView from './GraphView'
+import { openSAR } from './sarExport'
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
@@ -167,13 +168,25 @@ function LayeringDetail({ layerPath }) {
 
 // ─── Main card ─────────────────────────────────────────────────────────────
 
-export default function FindingCard({ exp, structuringData, smurfingData, layeringData }) {
+export default function FindingCard({ exp, structuringData, smurfingData, layeringData, classifyData }) {
   const risk = RISK[exp.risk_level] ?? RISK.low
   const escCls = ESC[exp.escalation] ?? 'bg-slate-800 text-slate-400 border-slate-700'
 
-  const structEntry = structuringData?.flagged_accounts?.find(a => a.account_id === exp.account_id)
-  const smurfEntry  = smurfingData?.flagged_accounts?.find(a => a.account_id === exp.account_id)
-  const layerPath   = layeringData?.detected_paths?.find(p => p.path?.includes(exp.account_id))
+  const structEntry   = structuringData?.flagged_accounts?.find(a => a.account_id === exp.account_id)
+  const smurfEntry    = smurfingData?.flagged_accounts?.find(a => a.account_id === exp.account_id)
+  const layerPath     = layeringData?.detected_paths?.find(p => p.path?.includes(exp.account_id))
+  const classifyEntry = classifyData?.classifications?.find(c => c.account_id === exp.account_id)
+
+  const handleExportSAR = () => {
+    openSAR({
+      exp,
+      classify:    classifyEntry ?? null,
+      structEntry: structEntry   ?? null,
+      smurfEntry:  smurfEntry    ?? null,
+      layerPath:   layerPath     ?? null,
+      filingDate:  new Date().toISOString().split('T')[0],
+    })
+  }
 
   const hasDetails = structEntry || smurfEntry || layerPath
   const hasGraph   = smurfEntry || layerPath
@@ -194,9 +207,21 @@ export default function FindingCard({ exp, structuringData, smurfingData, layeri
             <span className="text-slate-800">/100</span>
           </span>
         </div>
-        <span className={`px-3.5 py-1 rounded-full border text-[10px] font-bold uppercase tracking-widest ${escCls}`}>
-          {exp.escalation}
-        </span>
+        <div className="flex items-center gap-2 shrink-0">
+          <span className={`px-3.5 py-1 rounded-full border text-[10px] font-bold uppercase tracking-widest ${escCls}`}>
+            {exp.escalation}
+          </span>
+          <button
+            onClick={handleExportSAR}
+            title="Export SAR draft as HTML (printable to PDF)"
+            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-slate-700 bg-slate-800/60 hover:bg-slate-700 hover:border-slate-500 text-[10px] font-semibold text-slate-400 hover:text-slate-200 transition-all"
+          >
+            <svg viewBox="0 0 14 14" className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M2 10v2h10v-2M7 2v7M4.5 6.5L7 9l2.5-2.5" />
+            </svg>
+            Export SAR
+          </button>
+        </div>
       </header>
 
       {/* ── Body ────────────────────────────────────────────────────── */}

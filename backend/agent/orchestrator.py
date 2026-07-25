@@ -13,9 +13,10 @@ Design choices:
 
 from __future__ import annotations
 
+import json
 import logging
 import time
-from typing import Any
+from typing import Any, Generator
 
 from agent.registry import call_tool
 
@@ -34,6 +35,7 @@ _INJECT: dict[str, str] = {
     "anomaly_output":     "detect_anomalies",
     "smurfing_output":    "detect_smurfing",
     "layering_output":    "detect_layering",
+    "ml_risk_output":     "ml_risk_score",
     "classify_output":    "classify_risk",
 }
 
@@ -119,3 +121,64 @@ def execute_plan(plan: dict[str, Any]) -> dict[str, Any]:
         "timing":  timing,
         "errors":  errors,
     }
+
+
+def execute_plan_stream(plan: dict[str, Any]) -> Generator[str, None, None]:
+    """
+    Execute each plan step and yield SSE-formatted strings as each tool completes.
+
+    Event types emitted:
+      {"type": "plan",       "plan": dict}
+      {"type": "tool_start", "tool": str}
+      {"type": "tool_done",  "tool": str, "result": dict, "elapsed": float}
+      {"type": "tool_error", "tool": str, "error": str,   "elapsed": float}
+      {"type": "complete",   "errors": list, "timing": dict}
+    """
+
+    def sse(data: dict) -> str:
+        return f"data: {json.dumps(data)}\n\n"
+
+    steps:   list[dict]        = plan.get("plan", [])
+    results: dict[str, Any]    = {}
+    timing:  dict[str, float]  = {}
+    errors:  list[str]         = []
+
+    logger.info(
+        "Streaming plan: intent=%s, pattern=%s, steps=%d",
+        plan.get("intent"),
+        plan.get("target_pattern"),
+        len(steps),
+    )
+
+    yield sse({"type": "plan", "plan": plan})
+
+    for step in steps:
+        tool_name: str = step.get("tool", "")
+        args: dict     = step.get("args", {})
+
+        if not tool_name:
+            continue
+
+        args = _inject_results(args, results)
+        yield sse({"type": "tool_start", "tool": tool_name})
+
+        t0 = time.monotonic()
+        try:
+            logger.info("  → running tool: %s", tool_name)
+            result = call_tool(tool_name, args)
+            results[tool_name] = result
+            elapsed = round(time.monotonic() - t0, 3)
+            timing[tool_name]  = elapsed
+            logger.info("  ✓ %s completed in %.3fs", tool_name, elapsed)
+            yield sse({"type": "tool_done", "tool": tool_name,
+                       "result": result, "elapsed": elapsed})
+        except Exception as exc:
+            elapsed = round(time.monotonic() - t0, 3)
+            timing[tool_name]  = elapsed
+            results[tool_name] = {"error": str(exc), "tool": tool_name}
+            errors.append(tool_name)
+            logger.warning("  ✗ %s failed: %s", tool_name, exc)
+            yield sse({"type": "tool_error", "tool": tool_name,
+                       "error": str(exc), "elapsed": elapsed})
+
+    yield sse({"type": "complete", "errors": errors, "timing": timing})

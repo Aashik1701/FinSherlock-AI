@@ -8,6 +8,7 @@ from typing import Any
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 load_dotenv()  # reads backend/.env if present; safe no-op when file is absent
@@ -15,7 +16,7 @@ load_dotenv()  # reads backend/.env if present; safe no-op when file is absent
 # Importing tools package fires all @tool decorators — must happen before
 # we reference TOOL_REGISTRY.
 import tools  # noqa: F401
-from agent.orchestrator import execute_plan
+from agent.orchestrator import execute_plan, execute_plan_stream
 from agent.planner import call_planner
 from agent.registry import TOOL_REGISTRY, call_tool, get_llm_tool_schemas, list_tools
 
@@ -118,6 +119,39 @@ def investigate(request: InvestigateRequest) -> dict:
     except Exception as exc:
         logger.exception("Investigation failed for query: %r", request.query)
         raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.post("/investigate/stream", tags=["investigate"])
+def investigate_stream(request: InvestigateRequest) -> StreamingResponse:
+    """
+    Streaming version of /investigate.
+    Returns text/event-stream — each tool emits a 'tool_done' event as it completes
+    so the frontend can render results progressively without waiting for the full plan.
+
+    Use fetch() + ReadableStream on the frontend (EventSource only supports GET).
+    """
+    if not request.query.strip():
+        raise HTTPException(status_code=400, detail="query must not be empty")
+
+    import json
+
+    def event_stream():
+        try:
+            plan = call_planner(request.query)
+            yield from execute_plan_stream(plan)
+        except Exception as exc:
+            logger.exception("Streaming investigation failed for query: %r", request.query)
+            yield f"data: {json.dumps({'type': 'error', 'error': str(exc)})}\n\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection":        "keep-alive",
+        },
+    )
 
 
 # Register one POST /tools/{name} per entry in TOOL_REGISTRY at startup

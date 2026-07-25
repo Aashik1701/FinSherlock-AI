@@ -25,8 +25,9 @@ function PlannerBadge({ source }) {
   )
 }
 
-export default function ExecutionPlan({ plan = [], plannerSource, timing = {}, errors = [] }) {
+export default function ExecutionPlan({ plan = [], plannerSource, timing = {}, errors = [], toolStatus = {} }) {
   const totalTime = Object.values(timing).reduce((a, b) => a + b, 0)
+  const maxTime   = Math.max(...Object.values(timing), 0.001)
 
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
@@ -37,7 +38,7 @@ export default function ExecutionPlan({ plan = [], plannerSource, timing = {}, e
             Agentic Execution Plan
           </h2>
           <p className="text-[10px] text-slate-700 font-mono">
-            {plan.length} tools · {totalTime.toFixed(2)}s wall-clock
+            {plan.length} tools · {totalTime > 0 ? `${totalTime.toFixed(2)}s wall-clock` : 'running…'}
           </p>
         </div>
         <PlannerBadge source={plannerSource} />
@@ -47,41 +48,70 @@ export default function ExecutionPlan({ plan = [], plannerSource, timing = {}, e
       <div className="px-5 py-4">
         <div className="flex flex-wrap items-start gap-y-3 gap-x-1">
           {plan.map((step, i) => {
-            const meta = TOOL_META[step.tool] ?? { label: step.tool, dot: 'bg-slate-500', text: 'text-slate-400' }
-            const t = timing[step.tool]
-            const failed = errors.includes(step.tool)
+            const meta    = TOOL_META[step.tool] ?? { label: step.tool, dot: 'bg-slate-500', text: 'text-slate-400' }
+            const t       = timing[step.tool]
+            const status  = toolStatus[step.tool]
+            const isFailed  = status === 'error' || errors.includes(step.tool)
+            const isRunning = status === 'running'
+            const isPending = status === 'pending'
+            const isDone    = !isPending && !isRunning && !isFailed
 
             return (
               <span key={i} className="inline-flex items-center gap-1">
-                <span className={`inline-flex flex-col items-center gap-1 px-3 py-2.5 rounded-xl border transition-colors ${
-                  failed
+                <span className={`inline-flex flex-col items-center gap-1 px-3 py-2.5 rounded-xl border transition-all duration-300 ${
+                  isFailed
                     ? 'bg-red-950/30 border-red-900/60'
-                    : 'bg-slate-800/70 border-slate-700/60'
+                    : isRunning
+                      ? 'bg-slate-800/90 border-slate-600 shadow-sm shadow-blue-950/30'
+                      : isPending
+                        ? 'bg-slate-900/40 border-slate-800/40 opacity-40'
+                        : 'bg-slate-800/70 border-slate-700/60'
                 }`}>
-                  {/* Step number + dot */}
+                  {/* Dot + label */}
                   <span className="flex items-center gap-1.5">
-                    <span className={`w-1.5 h-1.5 rounded-full ${failed ? 'bg-red-500' : meta.dot}`} />
-                    <span className={`text-[10px] font-bold font-mono ${failed ? 'text-red-400' : meta.text}`}>
+                    <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                      isFailed  ? 'bg-red-500' :
+                      isRunning ? `${meta.dot} animate-pulse` :
+                      isPending ? 'bg-slate-600' :
+                      meta.dot
+                    }`} />
+                    <span className={`text-[10px] font-bold font-mono ${
+                      isFailed  ? 'text-red-400' :
+                      isPending ? 'text-slate-600' :
+                      meta.text
+                    }`}>
                       {step.tool}
                     </span>
                   </span>
-                  {/* Timing */}
-                  <span className="text-[9px] text-slate-600 font-mono">
-                    {failed ? '✕ failed' : t != null ? `${t.toFixed(2)}s` : '—'}
+
+                  {/* Timing / status line */}
+                  <span className="text-[9px] font-mono text-slate-600">
+                    {isFailed  ? '✕ failed' :
+                     isRunning ? (
+                       <span className="flex items-center gap-1">
+                         <span className="w-2 h-2 border border-slate-500 border-t-slate-300 rounded-full animate-spin" />
+                         running…
+                       </span>
+                     ) :
+                     isPending ? '—' :
+                     t != null  ? `${t.toFixed(2)}s` : '—'}
                   </span>
-                  {/* Timing bar */}
-                  {t != null && !failed && (
+
+                  {/* Timing bar — only when done with a time value */}
+                  {isDone && t != null && !isFailed && (
                     <div className="w-full h-0.5 bg-slate-700 rounded-full overflow-hidden">
                       <div
-                        className={`h-full rounded-full ${meta.dot} opacity-60`}
-                        style={{ width: `${Math.min((t / Math.max(...Object.values(timing))) * 100, 100)}%` }}
+                        className={`h-full rounded-full ${meta.dot} opacity-60 transition-all duration-500`}
+                        style={{ width: `${Math.min((t / maxTime) * 100, 100)}%` }}
                       />
                     </div>
                   )}
                 </span>
 
                 {i < plan.length - 1 && (
-                  <span className="text-slate-700 text-xs pb-5">→</span>
+                  <span className={`text-xs pb-5 transition-colors duration-300 ${
+                    isPending ? 'text-slate-800' : 'text-slate-700'
+                  }`}>→</span>
                 )}
               </span>
             )

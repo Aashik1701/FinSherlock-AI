@@ -138,7 +138,7 @@ function DatasetOverview({ eda, engineerFeatures, structuringData, smurfingData,
   )
 }
 
-function FindingsSection({ explanations, structuringData, smurfingData, layeringData }) {
+function FindingsSection({ explanations, structuringData, smurfingData, layeringData, classifyData }) {
   return (
     <section className="space-y-4">
       {/* Section header */}
@@ -174,6 +174,7 @@ function FindingsSection({ explanations, structuringData, smurfingData, layering
             structuringData={structuringData}
             smurfingData={smurfingData}
             layeringData={layeringData}
+            classifyData={classifyData}
           />
         ))
       )}
@@ -232,25 +233,77 @@ function LoadingState() {
 // ─── Root ───────────────────────────────────────────────────────────────────
 
 export default function App() {
-  const [loading, setLoading] = useState(false)
-  const [result,  setResult]  = useState(null)
-  const [error,   setError]   = useState(null)
+  const [loading,    setLoading]    = useState(false)
+  const [result,     setResult]     = useState(null)
+  const [error,      setError]      = useState(null)
+  const [toolStatus, setToolStatus] = useState({})
 
   const investigate = async (query) => {
     setLoading(true)
     setResult(null)
     setError(null)
+    setToolStatus({})
+
     try {
-      const res = await fetch(`${API_BASE}/investigate`, {
-        method: 'POST',
+      const res = await fetch(`${API_BASE}/investigate/stream`, {
+        method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query }),
+        body:    JSON.stringify({ query }),
       })
+
       if (!res.ok) {
         const body = await res.text().catch(() => '')
         throw new Error(`HTTP ${res.status}${body ? ': ' + body.slice(0, 200) : ''}`)
       }
-      setResult(await res.json())
+
+      const reader  = res.body.getReader()
+      const decoder = new TextDecoder()
+      let   buffer  = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() ?? ''
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue
+          let event
+          try { event = JSON.parse(line.slice(6)) } catch { continue }
+
+          if (event.type === 'plan') {
+            const initial = {}
+            for (const step of event.plan?.plan ?? []) initial[step.tool] = 'pending'
+            setToolStatus(initial)
+            setResult({ plan: event.plan, results: {}, timing: {}, errors: [] })
+
+          } else if (event.type === 'tool_start') {
+            setToolStatus(prev => ({ ...prev, [event.tool]: 'running' }))
+
+          } else if (event.type === 'tool_done') {
+            setToolStatus(prev => ({ ...prev, [event.tool]: 'done' }))
+            setResult(prev => prev ? {
+              ...prev,
+              results: { ...prev.results, [event.tool]: event.result },
+              timing:  { ...prev.timing,  [event.tool]: event.elapsed },
+            } : prev)
+
+          } else if (event.type === 'tool_error') {
+            setToolStatus(prev => ({ ...prev, [event.tool]: 'error' }))
+            setResult(prev => prev ? {
+              ...prev,
+              errors:  [...prev.errors, event.tool],
+              timing:  { ...prev.timing, [event.tool]: event.elapsed },
+            } : prev)
+
+          } else if (event.type === 'error') {
+            setError(event.error)
+          }
+          // 'complete' → loading cleared in finally
+        }
+      }
     } catch (e) {
       const msg = String(e.message ?? e)
       setError(
@@ -273,6 +326,7 @@ export default function App() {
   const structuringData  = result?.results?.detect_structuring ?? null
   const smurfingData     = result?.results?.detect_smurfing    ?? null
   const layeringData     = result?.results?.detect_layering    ?? null
+  const classifyData     = result?.results?.classify_risk              ?? null
   const explanations     = result?.results?.explain_flag?.explanations ?? []
 
   return (
@@ -312,11 +366,11 @@ export default function App() {
 
         <QueryPanel onSubmit={investigate} loading={loading} />
 
-        {/* Loading */}
-        {loading && <LoadingState />}
+        {/* Loading — only while waiting for the first plan event */}
+        {loading && !result && <LoadingState />}
 
         {/* Error */}
-        {error && !loading && (
+        {error && (
           <div className="bg-red-950/20 border border-red-900/40 rounded-2xl p-5 flex gap-4">
             <span className="text-red-500 text-base shrink-0 mt-0.5">!</span>
             <div className="space-y-1 min-w-0">
@@ -326,8 +380,8 @@ export default function App() {
           </div>
         )}
 
-        {/* Results */}
-        {result && !loading && (
+        {/* Results — rendered progressively as stream events arrive */}
+        {result && (
           <div className="space-y-8">
 
             <ExecutionPlan
@@ -335,6 +389,7 @@ export default function App() {
               plannerSource={plannerSource}
               timing={timing}
               errors={errors}
+              toolStatus={toolStatus}
             />
 
             <DatasetOverview
@@ -351,9 +406,10 @@ export default function App() {
               structuringData={structuringData}
               smurfingData={smurfingData}
               layeringData={layeringData}
+              classifyData={classifyData}
             />
 
-            <RawResponse data={result} />
+            {!loading && <RawResponse data={result} />}
           </div>
         )}
       </main>
