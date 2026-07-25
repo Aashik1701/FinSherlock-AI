@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import GraphView from './GraphView'
 
 const API_BASE = 'http://localhost:8000'
 
@@ -84,7 +85,7 @@ function ExecutionPlan({ plan, source, timing, errors }) {
   )
 }
 
-function FindingCard({ exp }) {
+function FindingCard({ exp, smurfingData, layeringData }) {
   const risk = RISK_STYLES[exp.risk_level] ?? RISK_STYLES.low
   const escCls = ESC_STYLES[exp.escalation] ?? 'text-gray-400 bg-gray-800 border-gray-700'
 
@@ -126,6 +127,12 @@ function FindingCard({ exp }) {
           </div>
         </div>
       )}
+
+      <GraphView
+        smurfingData={smurfingData}
+        layeringData={layeringData}
+        accountId={exp.account_id}
+      />
     </div>
   )
 }
@@ -195,6 +202,8 @@ export default function App() {
   const timing       = result?.timing ?? {}
   const errors       = result?.errors ?? []
   const explanations = result?.results?.explain_flag?.explanations ?? []
+  const smurfingData = result?.results?.detect_smurfing ?? null
+  const layeringData = result?.results?.detect_layering ?? null
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100 flex flex-col">
@@ -303,7 +312,12 @@ export default function App() {
                 </div>
               ) : (
                 explanations.map(exp => (
-                  <FindingCard key={exp.account_id} exp={exp} />
+                  <FindingCard
+                    key={exp.account_id}
+                    exp={exp}
+                    smurfingData={smurfingData}
+                    layeringData={layeringData}
+                  />
                 ))
               )}
             </section>
