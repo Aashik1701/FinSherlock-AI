@@ -163,10 +163,24 @@ The loader prints a column-mapping table so you can verify the inference before 
 
 ```bash
 cd backend
-uvicorn main:app --reload
+.venv/bin/uvicorn main:app --reload
 ```
 
 Swagger UI: [http://localhost:8000/docs](http://localhost:8000/docs)
+
+---
+
+## Running the Frontend
+
+The frontend is a single-page React app (Vite + Tailwind) that connects to the backend at `http://localhost:8000`.
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Open [http://localhost:5173](http://localhost:5173). Use the preset buttons (Structuring / Smurfing / Layering) to fire an investigation without typing — the execution plan, flagged accounts with evidence, and raw JSON response all render in the browser.
 
 ---
 
