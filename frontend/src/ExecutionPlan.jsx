@@ -5,6 +5,7 @@ const TOOL_META = {
   detect_anomalies:   { label: 'Anomaly',    dot: 'bg-purple-500',  text: 'text-purple-400' },
   detect_smurfing:    { label: 'Smurfing',   dot: 'bg-violet-500',  text: 'text-violet-400' },
   detect_layering:    { label: 'Layering',   dot: 'bg-amber-500',   text: 'text-amber-400' },
+  ml_risk_score:      { label: 'ML Score',   dot: 'bg-rose-500',    text: 'text-rose-400' },
   classify_risk:      { label: 'Classify',   dot: 'bg-orange-500',  text: 'text-orange-400' },
   explain_flag:       { label: 'Explain',    dot: 'bg-emerald-500', text: 'text-emerald-400' },
 }

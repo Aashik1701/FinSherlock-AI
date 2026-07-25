@@ -59,6 +59,14 @@ LAYERING_POINTS_NONE:   float = 0.0
 LAYERING_POINTS_MEDIUM: float = 50.0
 LAYERING_POINTS_HIGH:   float = 80.0
 
+# ── ML risk score signal (XGBoost supervised output) ──────────────────────────
+ML_PROB_MEDIUM: float = 0.30   # ≥ this probability → medium signal
+ML_PROB_HIGH:   float = 0.65   # ≥ this probability → high signal
+
+ML_POINTS_NONE:   float = 0.0
+ML_POINTS_MEDIUM: float = 45.0
+ML_POINTS_HIGH:   float = 72.0
+
 # ── Composite risk buckets ─────────────────────────────────────────────────────
 # Composite score = max(individual signal points) + DUAL_SIGNAL_BONUS when
 # two or more distinct signal types are present.
@@ -109,6 +117,13 @@ class ClassifyRiskArgs(BaseModel):
             "Injected automatically by the orchestrator when that tool ran first."
         ),
     )
+    ml_risk_output: Optional[dict] = Field(
+        default=None,
+        description=(
+            "Full output dict from ml_risk_score. "
+            "Injected automatically by the orchestrator when that tool ran first."
+        ),
+    )
     account_id: Optional[str] = Field(
         default=None,
         description="If set, return classification only for this account.",
@@ -155,6 +170,12 @@ def classify_risk(args: ClassifyRiskArgs) -> dict:
                 if existing is None or path["hop_count"] > existing["hop_count"]:
                     accounts[aid]["layering"] = path
 
+    if args.ml_risk_output and args.ml_risk_output.get("model_ready"):
+        for scored in args.ml_risk_output.get("scored_accounts", []):
+            aid = scored.get("account_id")
+            if aid and scored.get("ml_probability", 0.0) >= ML_PROB_MEDIUM:
+                accounts.setdefault(aid, {})["ml"] = scored
+
     # ── Optional single-account filter ───────────────────────────────────────
     if args.account_id:
         accounts = {k: v for k, v in accounts.items() if k == args.account_id}
@@ -170,10 +191,12 @@ def classify_risk(args: ClassifyRiskArgs) -> dict:
         anomaly_points     = 0.0
         smurfing_points    = 0.0
         layering_points    = 0.0
+        ml_points          = 0.0
         has_structuring    = False
         has_anomaly        = False
         has_smurfing       = False
         has_layering       = False
+        has_ml             = False
 
         # ── Structuring signal ────────────────────────────────────────────────
         struct = signals_data.get("structuring")
@@ -313,9 +336,46 @@ def classify_risk(args: ClassifyRiskArgs) -> dict:
                     "weight":  0.3,
                 })
 
+        # ── ML risk score signal ──────────────────────────────────────────────
+        ml_data = signals_data.get("ml")
+        if ml_data:
+            has_ml = True
+            prob = float(ml_data.get("ml_probability", 0.0))
+
+            if prob >= ML_PROB_HIGH:
+                ml_points = ML_POINTS_HIGH
+            elif prob >= ML_PROB_MEDIUM:
+                ml_points = ML_POINTS_MEDIUM
+            else:
+                ml_points = ML_POINTS_NONE
+
+            contributing_signals.append({
+                "signal":  "ml_risk_probability",
+                "value":   round(prob, 4),
+                "label":   (
+                    f"XGBoost ML probability {prob:.4f} "
+                    f"(medium threshold: {ML_PROB_MEDIUM}, high: {ML_PROB_HIGH})"
+                ),
+                "weight":  round(ml_points / 100, 2),
+            })
+            if ml_data.get("top_transaction"):
+                tt = ml_data["top_transaction"]
+                contributing_signals.append({
+                    "signal":  "ml_top_transaction",
+                    "value":   tt.get("ml_prob", prob),
+                    "label":   (
+                        f"highest-scored txn {tt.get('transaction_id', '')[:12]} "
+                        f"prob={tt.get('ml_prob', prob):.4f} "
+                        f"amount=${tt.get('amount', 0):,.2f}"
+                    ),
+                    "weight":  0.1,
+                })
+
         # ── Composite score ───────────────────────────────────────────────────
-        composite = max(structuring_points, anomaly_points, smurfing_points, layering_points)
-        signal_type_count = sum([has_structuring, has_anomaly, has_smurfing, has_layering])
+        composite = max(structuring_points, anomaly_points, smurfing_points,
+                        layering_points, ml_points)
+        signal_type_count = sum([has_structuring, has_anomaly, has_smurfing,
+                                 has_layering, has_ml])
         if signal_type_count >= 2:
             composite = min(100.0, composite + DUAL_SIGNAL_BONUS)
 
