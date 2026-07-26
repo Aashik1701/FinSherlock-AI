@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import RiskGauge from './RiskGauge'
 import GraphView from './GraphView'
 import { openSAR } from './sarExport'
@@ -167,6 +167,131 @@ function LayeringDetail({ layerPath }) {
   )
 }
 
+// ─── SHAP bar chart ────────────────────────────────────────────────────────
+
+function SHAPBar({ value, maxAbs }) {
+  const pct = maxAbs > 0 ? Math.abs(value) / maxAbs * 50 : 0
+  const positive = value >= 0
+  return (
+    <div className="relative flex items-center h-3 w-full">
+      {/* centre line */}
+      <div className="absolute left-1/2 top-0 bottom-0 w-px bg-slate-700" />
+      {positive ? (
+        <div
+          className="absolute left-1/2 h-2 rounded-r bg-red-500/80"
+          style={{ width: `${pct}%` }}
+        />
+      ) : (
+        <div
+          className="absolute right-1/2 h-2 rounded-l bg-emerald-500/70"
+          style={{ width: `${pct}%` }}
+        />
+      )}
+    </div>
+  )
+}
+
+function SHAPPanel({ accountId, windowDays }) {
+  const [state, setState] = useState('idle')  // idle | loading | done | error
+  const [data, setData]   = useState(null)
+  const [errMsg, setErrMsg] = useState('')
+
+  const load = useCallback(async () => {
+    setState('loading')
+    try {
+      const res = await fetch('http://localhost:8000/tools/shap_explain', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ account_ids: [accountId], window_days: windowDays ?? 30 }),
+      })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const json = await res.json()
+      if (!json.ready) throw new Error(json.message ?? 'SHAP not ready')
+      setData(json.explanations?.[0] ?? null)
+      setState('done')
+    } catch (err) {
+      setErrMsg(err.message)
+      setState('error')
+    }
+  }, [accountId, windowDays])
+
+  if (state === 'idle') {
+    return (
+      <button
+        onClick={load}
+        className="text-[10px] font-semibold text-indigo-400 hover:text-indigo-300 border border-indigo-900/50 hover:border-indigo-700 bg-indigo-950/20 hover:bg-indigo-950/40 px-3 py-1.5 rounded-lg transition-all"
+      >
+        Explain with SHAP
+      </button>
+    )
+  }
+
+  if (state === 'loading') {
+    return (
+      <div className="text-[10px] text-slate-600 animate-pulse px-1">
+        Computing SHAP values…
+      </div>
+    )
+  }
+
+  if (state === 'error') {
+    return (
+      <div className="text-[10px] text-red-500 px-1">
+        SHAP error: {errMsg}
+      </div>
+    )
+  }
+
+  if (!data) {
+    return (
+      <div className="text-[10px] text-slate-600 px-1">
+        No SHAP data returned for this account.
+      </div>
+    )
+  }
+
+  const maxAbs = Math.max(...data.shap_values.map(s => Math.abs(s.shap_value)), 0.0001)
+
+  return (
+    <div className="space-y-3">
+      <p className="text-[11px] text-slate-300 leading-relaxed italic border-l-2 border-indigo-800 pl-3">
+        {data.narrative}
+      </p>
+      <div className="bg-slate-950/60 border border-slate-800 rounded-xl overflow-hidden">
+        <div className="px-3 py-2 border-b border-slate-800 flex items-center justify-between">
+          <span className="text-[9px] text-slate-600 font-bold uppercase tracking-widest">
+            SHAP Feature Attribution · txn {String(data.transaction_id).slice(-8)}
+          </span>
+          <span className="text-[9px] text-slate-700 font-mono">
+            p={data.ml_probability.toFixed(3)} · base={data.base_probability.toFixed(3)}
+          </span>
+        </div>
+        <div className="divide-y divide-slate-800/40">
+          {data.shap_values.map((s, i) => (
+            <div key={i} className="grid grid-cols-[1fr_6rem_3.5rem] items-center gap-3 px-3 py-1.5">
+              <span className="text-[10px] text-slate-400 truncate" title={s.label}>{s.label}</span>
+              <SHAPBar value={s.shap_value} maxAbs={maxAbs} />
+              <span className={`text-[10px] font-mono text-right tabular-nums ${
+                s.shap_value >= 0 ? 'text-red-400' : 'text-emerald-400'
+              }`}>
+                {s.shap_value >= 0 ? '+' : ''}{s.shap_value.toFixed(3)}
+              </span>
+            </div>
+          ))}
+        </div>
+        <div className="px-3 py-1.5 border-t border-slate-800 flex gap-6 text-[9px] text-slate-700">
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block w-3 h-2 rounded-r bg-red-500/70" /> increases risk
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block w-3 h-2 rounded-l bg-emerald-500/60" /> decreases risk
+          </span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Main card ─────────────────────────────────────────────────────────────
 
 export default function FindingCard({ exp, structuringData, smurfingData, layeringData, classifyData, onFeedback }) {
@@ -320,6 +445,11 @@ export default function FindingCard({ exp, structuringData, smurfingData, layeri
             </div>
           </Section>
         )}
+
+        {/* SHAP explanation — on-demand per transaction */}
+        <Section title="ML Explanation">
+          <SHAPPanel accountId={exp.account_id} windowDays={30} />
+        </Section>
 
         {/* Detection detail panels */}
         {hasDetails && (

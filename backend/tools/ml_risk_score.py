@@ -194,6 +194,11 @@ def ml_risk_score(args: MLRiskScoreArgs) -> dict:
     for col in _fmt_cols:
         df[col] = fmt_dummies[col].values
 
+    # ── Old-model compat: is_currency_mismatch was removed from training but
+    # may still appear in feat_cols if the model has not been retrained yet ─────
+    if "is_currency_mismatch" in _feat_cols:
+        df["is_currency_mismatch"] = 0
+
     # ── Score each transaction ─────────────────────────────────────────────────
     X = df[_feat_cols].values
     probs = _model.predict_proba(X)[:, 1]

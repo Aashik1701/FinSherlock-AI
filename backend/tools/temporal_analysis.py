@@ -127,6 +127,8 @@ def _score_window(
     # ── ML scoring ────────────────────────────────────────────────────────────
     ml_probs = {}
     if _MODEL_READY and _feat_cols:
+        if "is_currency_mismatch" in _feat_cols:
+            df["is_currency_mismatch"] = 0
         X = df[_feat_cols].fillna(0.0).values
         probs = _model.predict_proba(X)[:, 1]
         df["ml_prob"] = probs
