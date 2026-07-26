@@ -167,14 +167,17 @@ _cached_metrics: dict | None = None
 
 
 @app.get("/metrics", tags=["meta"])
-def get_metrics(limit: int = 500_000) -> dict:
+def get_metrics(limit: int | None = None) -> dict:
     """
     Evaluate detection tools against IBM AML ground-truth labels.
 
     Returns precision/recall/F1 for each rule-based detector, a naive baseline
-    comparison, and false-positive reduction percentages.
+    comparison, false-positive reduction percentages, and XGBoost model metrics.
 
+    Evaluates the full CSV by default (same methodology as scripts/evaluate_detection.py).
     Results are cached in-memory after the first call since the dataset is static.
+    Pass ?limit=N to restrict to the first N rows (only for debugging — produces
+    in-sample-inflated XGBoost metrics since the first rows overlap with the training split).
     """
     global _cached_metrics
     if _cached_metrics is not None:

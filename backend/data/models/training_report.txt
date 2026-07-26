@@ -1,0 +1,104 @@
+FinSherlock AI — XGBoost Baseline Training Report
+==================================================
+Dataset   : data/raw/HI-Small_Trans.csv (IBM HI-Small AML)
+Rows      : 5,078,345
+Laundering: 5,177 (0.1019%)
+Split     : chronological 60 / 20 / 20
+  Train   : 3,047,007 rows  (2022-09-01 → 2022-09-06 13:36)
+  Val     :   1,015,669 rows  (2022-09-06 → 2022-09-08)
+  Test    :   1,015,669 rows  (2022-09-08 → 2022-09-18)  ← held-out evaluation below
+
+Model     : XGBoost (n_estimators=300, max_depth=6, lr=0.1, seed=42)
+Features  : sender_out_degree, receiver_in_degree, log_amount_paid, amount_entropy,
+            hour-of-day one-hot (hod_0..hod_23), day-of-week one-hot (dow_0..dow_6),
+            payment format one-hot (fmt_ACH, fmt_Bitcoin, fmt_Cash, fmt_Cheque,
+            fmt_Credit Card, fmt_Reinvestment, fmt_Wire)
+            — 41 features total
+            NOTE: is_currency_mismatch excluded (not available at DuckDB inference time)
+scale_pos_weight : ~964 (reflects 0.1% positive rate)
+Threshold : 0.9813 (tuned on val set to maximise F1)
+
+==================================================
+HELD-OUT TEST-SET RESULTS  (last 20%, 1,015,669 rows)
+==================================================
+Test laundering: 1,797 (0.1769%)
+Test period    : 2022-09-08 16:12 → 2022-09-18 16:18
+
+              precision    recall  f1-score   support
+
+       clean    0.9985    0.9986    0.9985   1013872
+  laundering    0.1465    0.1358    0.1409      1797
+
+    accuracy                        0.9971   1015669
+   macro avg    0.5725    0.5672    0.5697   1015669
+weighted avg    0.9970    0.9971    0.9970   1015669
+
+PR-AUC (Average Precision) : 0.08535
+Precision@50               : 0.5400  (27 true positives in top 50)
+Precision@100              : 0.3800  (38 true positives in top 100)
+Precision@500              : 0.2000  (100 true positives in top 500)
+
+Degree feature coverage (test set):
+  sender_out_degree  nonzero: 99.7%   (accounts seen in training)
+  receiver_in_degree nonzero: 99.8%
+
+==================================================
+FULL-CSV EVALUATION  (5,078,345 rows — incl. train/val/test, for /metrics endpoint)
+==================================================
+This is what the /metrics API endpoint returns.  It mixes in-sample and
+out-of-sample rows, so the numbers are optimistic relative to the test set.
+
+PR-AUC    : 0.13238
+Precision : 0.1494
+Recall    : 0.2430
+F1        : 0.1850
+Threshold : 0.9813
+
+==================================================
+PREVIOUSLY REPORTED (INCORRECT) NUMBER
+==================================================
+The /metrics endpoint formerly used limit=500,000, reading the first 500K rows
+of the raw CSV (file order, un-sorted).  These rows span 2022-09-01 to
+2022-09-06 — almost entirely within the training split (training ends 2022-09-06).
+The 500K subset also has a lower laundering rate (0.0386% vs 0.1019%) and only
+193 laundering labels.  The model scored near-perfectly on accounts it was
+trained on, producing:
+
+  PR-AUC (500K, in-sample) : 0.451   ← INCORRECT, do not cite
+  Precision                : 0.675
+  Recall                   : 0.269
+
+This number has been removed from the UI and the endpoint.
+
+==================================================
+FEATURE IMPORTANCES (gain-based, from training run)
+==================================================
+fmt_ACH                       0.6107  ← dominant signal (ACH format used for structuring)
+fmt_Bitcoin                   0.0531
+sender_out_degree             0.0398
+fmt_Cheque                    0.0191
+fmt_Reinvestment              0.0164
+dow_3 / dow_4 / dow_6         0.0131 / 0.0108 / 0.0101  (Thu/Fri/Sun suspicious timing)
+log_amount_paid               0.0112
+amount_entropy                0.0091
+receiver_in_degree            0.0087
+(hod_* features ~0.006-0.009 each — off-hours clustering)
+
+Note: fmt_ACH alone accounts for 61% of model gain.  The model has learned that
+ACH transactions (used by launderers to avoid wire-transfer scrutiny) are a strong
+signal.  This feature is available at inference time via DuckDB's Payment Format column.
+
+==================================================
+AUTHORITATIVE NUMBERS FOR DEMO / WRITEUP
+==================================================
+Use the held-out test-set numbers as the primary claim:
+  PR-AUC        : 0.085
+  Precision@100 : 38%   (38 correct flags in the top-100 most suspicious accounts)
+  Precision@50  : 54%   (27 correct flags in the top-50)
+
+The full-CSV number (0.132 PR-AUC) is acceptable as a secondary reference
+if citing "evaluated against all 5.1M labeled transactions" — but note it
+includes training data.
+
+Model saved at : data/models/xgb_baseline.joblib  (6.4 MB, compress=3)
+Generated      : 2026-07-26

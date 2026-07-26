@@ -60,7 +60,7 @@ export default function MetricsPanel() {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch(`${API_BASE}/metrics?limit=500000`)
+      const res = await fetch(`${API_BASE}/metrics`)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json()
       setMetrics(data)
@@ -187,6 +187,10 @@ export default function MetricsPanel() {
                   <MetricBar label="Precision" value={xgb.precision} color="bg-emerald-500" />
                   <MetricBar label="Recall" value={xgb.recall} color="bg-blue-500" />
                   <MetricBar label="F1 Score" value={xgb.f1} color="bg-violet-500" />
+                  <p className="text-[9px] text-slate-600 pt-1 border-t border-slate-800/60">
+                    Evaluated on full {metrics?.dataset?.total_rows?.toLocaleString()} row CSV (train+val+test combined).
+                    Held-out test-set PR-AUC: 0.085 · Precision@100: 38%.
+                  </p>
                 </div>
               )}
 
