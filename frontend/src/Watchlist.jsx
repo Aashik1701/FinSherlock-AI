@@ -6,9 +6,9 @@ const API_BASE = 'http://localhost:8000'
 const fmtPct = (v) => `${(v * 100).toFixed(1)}%`
 
 const TREND_ICON = {
-  increasing: { label: '↑', cls: 'text-red-600', title: 'Risk increasing' },
-  decreasing: { label: '↓', cls: 'text-emerald-600', title: 'Risk decreasing' },
-  stable:     { label: '→', cls: 'text-gray-400', title: 'Risk stable' },
+  increasing: { label: '↑', cls: 'text-[var(--red)]', title: 'Risk increasing' },
+  decreasing: { label: '↓', cls: 'text-[var(--emerald)]', title: 'Risk decreasing' },
+  stable:     { label: '→', cls: 'text-[var(--text-muted)]', title: 'Risk stable' },
 }
 
 const RISK_BADGE = {
@@ -24,50 +24,50 @@ function riskLevel(mlProb) {
 }
 
 function SortIcon({ active, direction }) {
-  if (!active) return <span className="text-gray-300 ml-0.5">↕</span>
+  if (!active) return <span className="text-[var(--text-muted)] ml-0.5">↕</span>
   return <span className="text-orange-500 ml-0.5">{direction === 'asc' ? '↑' : '↓'}</span>
 }
 
 function TemporalDetail({ temporalData, loading, error }) {
-  if (loading) return <div className="px-6 py-4 flex items-center gap-2"><span className="w-3.5 h-3.5 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" /><span className="text-xs text-gray-500">Loading temporal analysis…</span></div>
+  if (loading) return <div className="px-6 py-4 flex items-center gap-2"><span className="w-3.5 h-3.5 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" /><span className="text-xs text-[var(--text-secondary)]">Loading temporal analysis…</span></div>
   if (error) return <div className="px-6 py-4"><p className="text-xs text-red-600">{error}</p></div>
-  if (!temporalData?.temporal_profiles?.length) return <div className="px-6 py-4"><p className="text-xs text-gray-400">No temporal data available.</p></div>
+  if (!temporalData?.temporal_profiles?.length) return <div className="px-6 py-4"><p className="text-xs text-[var(--text-muted)]">No temporal data available.</p></div>
 
   const profile = temporalData.temporal_profiles[0]
   const windows = profile.windows
 
   return (
-    <div className="px-6 py-4 space-y-3 bg-gray-50">
+    <div className="px-6 py-4 space-y-3 bg-[var(--bg-card-hover)]">
       <div className="flex items-center gap-3">
         <p className="eyebrow">Temporal Risk Evolution</p>
-        <span className={`text-xs font-bold ${TREND_ICON[profile.trend]?.cls ?? 'text-gray-500'}`}>
+        <span className={`text-xs font-bold ${TREND_ICON[profile.trend]?.cls ?? 'text-[var(--text-secondary)]'}`}>
           {TREND_ICON[profile.trend]?.label} {profile.trend}
         </span>
       </div>
-      <div className="border border-gray-200 rounded-xl overflow-hidden">
+      <div className="border border-[var(--border-card)] rounded-xl overflow-hidden">
         <table className="w-full text-xs">
           <thead>
-            <tr className="border-b border-gray-200 bg-white">
-              <th className="text-left px-3 py-2 text-gray-500 font-semibold">Window</th>
-              <th className="text-right px-3 py-2 text-gray-500 font-semibold">ML Prob</th>
-              <th className="text-right px-3 py-2 text-gray-500 font-semibold">Structuring</th>
-              <th className="text-right px-3 py-2 text-gray-500 font-semibold">Smurfing</th>
-              <th className="text-right px-3 py-2 text-gray-500 font-semibold">Layering</th>
-              <th className="text-right px-3 py-2 text-gray-500 font-semibold">Risk Score</th>
+            <tr className="border-b border-[var(--border-card)] bg-[var(--bg-card)]">
+              <th className="text-left px-3 py-2 text-[var(--text-secondary)] font-semibold">Window</th>
+              <th className="text-right px-3 py-2 text-[var(--text-secondary)] font-semibold">ML Prob</th>
+              <th className="text-right px-3 py-2 text-[var(--text-secondary)] font-semibold">Structuring</th>
+              <th className="text-right px-3 py-2 text-[var(--text-secondary)] font-semibold">Smurfing</th>
+              <th className="text-right px-3 py-2 text-[var(--text-secondary)] font-semibold">Layering</th>
+              <th className="text-right px-3 py-2 text-[var(--text-secondary)] font-semibold">Risk Score</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-[var(--border-card)]">
             {windows.map((w) => {
               const rl = riskLevel(w.ml_prob)
               return (
-                <tr key={w.window_days} className="hover:bg-gray-50 transition-colors bg-white">
-                  <td className="px-3 py-2 font-mono font-semibold text-gray-700">{w.window_days}d</td>
+                <tr key={w.window_days} className="hover:bg-[var(--bg-card-hover)] transition-colors bg-[var(--bg-card)]">
+                  <td className="px-3 py-2 font-mono font-semibold text-[var(--text-primary)]">{w.window_days}d</td>
                   <td className="px-3 py-2 text-right font-mono">
                     <span className={rl === 'high' ? 'text-red-600' : rl === 'medium' ? 'text-amber-600' : 'text-emerald-600'}>{fmtPct(w.ml_prob)}</span>
                   </td>
-                  <td className="px-3 py-2 text-right font-mono text-gray-500">{w.structuring_count > 0 ? <span className={w.structuring_count >= 4 ? 'text-red-600' : 'text-amber-600'}>{w.structuring_count}</span> : '—'}</td>
-                  <td className="px-3 py-2 text-right font-mono text-gray-500">{w.smurfing_fan_out > 0 || w.smurfing_fan_in > 0 ? <span className="text-violet-600">{w.smurfing_fan_out}/{w.smurfing_fan_in}</span> : '—'}</td>
-                  <td className="px-3 py-2 text-right font-mono text-gray-500">{w.layering_hops > 0 ? <span className="text-amber-600">{w.layering_hops}</span> : '—'}</td>
+                  <td className="px-3 py-2 text-right font-mono text-[var(--text-secondary)]">{w.structuring_count > 0 ? <span className={w.structuring_count >= 4 ? 'text-red-600' : 'text-amber-600'}>{w.structuring_count}</span> : '—'}</td>
+                  <td className="px-3 py-2 text-right font-mono text-[var(--text-secondary)]">{w.smurfing_fan_out > 0 || w.smurfing_fan_in > 0 ? <span className="text-violet-600">{w.smurfing_fan_out}/{w.smurfing_fan_in}</span> : '—'}</td>
+                  <td className="px-3 py-2 text-right font-mono text-[var(--text-secondary)]">{w.layering_hops > 0 ? <span className="text-amber-600">{w.layering_hops}</span> : '—'}</td>
                   <td className="px-3 py-2 text-right font-mono">
                     <span className={`font-semibold ${w.composite_risk >= 65 ? 'text-red-600' : w.composite_risk >= 40 ? 'text-amber-600' : 'text-emerald-600'}`}>{w.composite_risk.toFixed(1)}</span>
                   </td>
@@ -155,7 +155,7 @@ export default function Watchlist() {
     <section className="space-y-4">
       <div>
         <p className="eyebrow">Risk Watchlist</p>
-        <p className="text-sm text-gray-500 mt-0.5">
+        <p className="text-sm text-[var(--text-secondary)] mt-0.5">
           {accounts.length} accounts ranked by ML probability · daily analyst briefing
         </p>
       </div>
@@ -163,7 +163,7 @@ export default function Watchlist() {
       {loading && (
         <div className="card flex items-center gap-3">
           <span className="w-4 h-4 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
-          <span className="text-sm text-gray-600">Loading watchlist…</span>
+          <span className="text-sm text-[var(--text-secondary)]">Loading watchlist…</span>
         </div>
       )}
 
@@ -182,37 +182,37 @@ export default function Watchlist() {
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
-                <tr className="border-b border-gray-200 bg-gray-50">
-                  <th className="text-left px-4 py-3 text-gray-500 font-semibold w-8">#</th>
-                  <th className="text-left px-4 py-3 text-gray-500 font-semibold cursor-pointer hover:text-gray-700" onClick={() => handleSort('account_id')}>
+                <tr className="border-b border-[var(--border-card)] bg-[var(--bg-card-hover)]">
+                  <th className="text-left px-4 py-3 text-[var(--text-secondary)] font-semibold w-8">#</th>
+                  <th className="text-left px-4 py-3 text-[var(--text-secondary)] font-semibold cursor-pointer hover:text-[var(--text-primary)]" onClick={() => handleSort('account_id')}>
                     Account <SortIcon active={sortCol === 'account_id'} direction={sortDir} />
                   </th>
-                  <th className="text-center px-4 py-3 text-gray-500 font-semibold">Score</th>
-                  <th className="text-right px-4 py-3 text-gray-500 font-semibold cursor-pointer hover:text-gray-700" onClick={() => handleSort('txn_count')}>
+                  <th className="text-center px-4 py-3 text-[var(--text-secondary)] font-semibold">Score</th>
+                  <th className="text-right px-4 py-3 text-[var(--text-secondary)] font-semibold cursor-pointer hover:text-[var(--text-primary)]" onClick={() => handleSort('txn_count')}>
                     Txns <SortIcon active={sortCol === 'txn_count'} direction={sortDir} />
                   </th>
-                  <th className="text-center px-4 py-3 text-gray-500 font-semibold">Capital at Risk</th>
-                  <th className="text-center px-4 py-3 text-gray-500 font-semibold">Trend</th>
+                  <th className="text-center px-4 py-3 text-[var(--text-secondary)] font-semibold">Capital at Risk</th>
+                  <th className="text-center px-4 py-3 text-[var(--text-secondary)] font-semibold">Trend</th>
                   <th className="w-16 px-4 py-3" />
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+          <tbody className="divide-y divide-[var(--border-card)]">
                 {sorted.map((acct, i) => {
                   const rl = riskLevel(acct.ml_probability)
                   const isExpanded = expanded === acct.account_id
                   const capitalAtRisk = (acct.total_volume ?? 0) * acct.ml_probability
                   return (
                     <Fragment key={acct.account_id}>
-                      <tr className={`hover:bg-gray-50 transition-colors cursor-pointer ${isExpanded ? 'bg-orange-50/50' : ''}`} onClick={() => toggleExpand(acct.account_id)}>
-                        <td className="px-4 py-3 font-mono text-gray-400">{i + 1}</td>
-                        <td className="px-4 py-3 font-mono font-bold text-gray-800">{acct.account_id}</td>
+                      <tr className={`hover:bg-[var(--bg-card-hover)] transition-colors cursor-pointer ${isExpanded ? 'bg-[var(--orange-bg)]/50' : ''}`} onClick={() => toggleExpand(acct.account_id)}>
+                        <td className="px-4 py-3 font-mono text-[var(--text-muted)]">{i + 1}</td>
+                        <td className="px-4 py-3 font-mono font-bold text-[var(--text-primary)]">{acct.account_id}</td>
                         <td className="px-4 py-3 text-center">
                           <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${RISK_BADGE[rl]}`}>
                             {fmtPct(acct.ml_probability)}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-right font-mono text-gray-500">{acct.txn_count?.toLocaleString()}</td>
-                        <td className="px-4 py-3 text-center font-mono text-gray-600">
+                        <td className="px-4 py-3 text-right font-mono text-[var(--text-secondary)]">{acct.txn_count?.toLocaleString()}</td>
+                        <td className="px-4 py-3 text-center font-mono text-[var(--text-secondary)]">
                           {capitalAtRisk > 1000 ? `$${(capitalAtRisk / 1000).toFixed(0)}K` : '—'}
                         </td>
                         <td className="px-4 py-3 text-center">
@@ -224,10 +224,10 @@ export default function Watchlist() {
                             )}
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-right text-gray-400 text-[10px]">{isExpanded ? '▲' : '▼'}</td>
+                        <td className="px-4 py-3 text-right text-[var(--text-muted)] text-[10px]">{isExpanded ? '▲' : '▼'}</td>
                       </tr>
                       {isExpanded && (
-                        <tr><td colSpan={7} className="p-0 border-t border-gray-100"><TemporalDetail temporalData={temporalData} loading={temporalLoading} error={temporalError} /></td></tr>
+                        <tr><td colSpan={7} className="p-0 border-t border-[var(--border-card)]"><TemporalDetail temporalData={temporalData} loading={temporalLoading} error={temporalError} /></td></tr>
                       )}
                     </Fragment>
                   )
@@ -240,8 +240,8 @@ export default function Watchlist() {
 
       {!loading && !error && accounts.length === 0 && (
         <div className="card py-14 text-center space-y-2">
-          <p className="text-gray-500 font-medium">No accounts in watchlist</p>
-          <p className="text-xs text-gray-400 max-w-md mx-auto">Load the IBM AML dataset and run the XGBoost training script to populate the watchlist.</p>
+          <p className="text-[var(--text-secondary)] font-medium">No accounts in watchlist</p>
+          <p className="text-xs text-[var(--text-muted)] max-w-md mx-auto">Load the IBM AML dataset and run the XGBoost training script to populate the watchlist.</p>
         </div>
       )}
     </section>

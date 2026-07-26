@@ -74,27 +74,27 @@ export default function CopilotWidget() {
 
       {/* Floating Modal Window */}
       {open && (
-        <div className="absolute bottom-16 right-0 w-96 max-w-[calc(100vw-3rem)] h-[520px] bg-[#0b0f19]/95 backdrop-blur-xl border border-slate-800 rounded-2xl shadow-2xl flex flex-col overflow-hidden transition-all duration-200">
+        <div className="absolute bottom-16 right-0 w-96 max-w-[calc(100vw-3rem)] h-[520px] bg-[var(--bg-card)]/95 backdrop-blur-xl border border-[var(--border-card)] rounded-2xl shadow-2xl flex flex-col overflow-hidden transition-all duration-200">
 
           {/* Modal Header */}
-          <div className="px-4 py-3.5 bg-slate-900/80 border-b border-slate-800 flex items-center justify-between">
+          <div className="px-4 py-3.5 bg-[var(--bg-card-hover)]/80 border-b border-[var(--border-card)] flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-lg bg-indigo-950 border border-indigo-700/60 flex items-center justify-center font-bold text-indigo-400 text-xs shadow-sm">
+              <div className="w-7 h-7 rounded-lg bg-[var(--indigo-bg)] border border-[var(--indigo-border)]/60 flex items-center justify-center font-bold text-[var(--indigo)] text-xs shadow-sm">
                 🤖
               </div>
               <div>
-                <h3 className="text-xs font-bold text-slate-100 flex items-center gap-2">
+                <h3 className="text-xs font-bold text-[var(--text-primary)] flex items-center gap-2">
                   FinSherlock Copilot
-                  <span className="px-1.5 py-0.5 rounded text-[8px] font-mono font-semibold bg-emerald-950 text-emerald-400 border border-emerald-800">
+                  <span className="px-1.5 py-0.5 rounded text-[8px] font-mono font-semibold bg-[var(--emerald-bg)] text-[var(--emerald)] border border-[var(--emerald-border)]">
                     Online
                   </span>
                 </h3>
-                <p className="text-[9px] text-slate-500">AI Compliance & Regulatory Assistant</p>
+                <p className="text-[9px] text-[var(--text-muted)]">AI Compliance & Regulatory Assistant</p>
               </div>
             </div>
             <button
               onClick={() => setOpen(false)}
-              className="w-6 h-6 rounded-md hover:bg-slate-800 text-slate-400 hover:text-slate-200 flex items-center justify-center text-xs transition-colors"
+              className="w-6 h-6 rounded-md hover:bg-[var(--border-card)] text-[var(--text-muted)] hover:text-[var(--text-primary)] flex items-center justify-center text-xs transition-colors"
             >
               ✕
             </button>
@@ -112,24 +112,24 @@ export default function CopilotWidget() {
                 <div
                   className={`max-w-[85%] rounded-xl px-3.5 py-2.5 leading-relaxed ${
                     m.sender === 'user'
-                      ? 'bg-blue-600 text-white rounded-br-none'
+                      ? 'bg-[var(--indigo)] text-white rounded-br-none'
                       : m.isError
-                        ? 'bg-red-950/60 text-red-300 border border-red-900/60 rounded-bl-none'
-                        : 'bg-slate-900 border border-slate-800/80 text-slate-200 rounded-bl-none shadow-sm'
+                        ? 'bg-[var(--red-bg)]/60 text-[var(--red)] border border-[var(--red-border)]/60 rounded-bl-none'
+                        : 'bg-[var(--bg-card)] border border-[var(--border-card)]/80 text-[var(--text-primary)] rounded-bl-none shadow-sm'
                   }`}
                 >
                   <p>{m.text}</p>
                 </div>
-                <div className="flex items-center gap-1.5 px-1 text-[9px] text-slate-600 font-mono">
+                <div className="flex items-center gap-1.5 px-1 text-[9px] text-[var(--text-secondary)] font-mono">
                   <span>{m.ts}</span>
-                  {m.source && <span className="text-indigo-400">· {m.source}</span>}
+                  {m.source && <span className="text-[var(--indigo)]">· {m.source}</span>}
                 </div>
               </div>
             ))}
 
             {loading && (
-              <div className="flex items-center gap-2 text-[10px] text-slate-500 italic pl-1">
-                <span className="w-2 h-2 rounded-full bg-indigo-500 animate-ping" />
+              <div className="flex items-center gap-2 text-[10px] text-[var(--text-muted)] italic pl-1">
+                <span className="w-2 h-2 rounded-full bg-[var(--indigo)] animate-ping" />
                 Copilot is thinking…
               </div>
             )}
@@ -137,13 +137,13 @@ export default function CopilotWidget() {
           </div>
 
           {/* Quick Prompts */}
-          <div className="px-3 py-2 bg-slate-950/40 border-t border-slate-800/60 overflow-x-auto flex gap-1.5 [scrollbar-width:none]">
+          <div className="px-3 py-2 bg-[var(--bg-card-hover)]/40 border-t border-[var(--border-card)]/60 overflow-x-auto flex gap-1.5 [scrollbar-width:none]">
             {QUICK_PROMPTS.map((p, i) => (
               <button
                 key={i}
                 onClick={() => send(p)}
                 disabled={loading}
-                className="shrink-0 px-2.5 py-1 rounded-lg border border-slate-800 bg-slate-900/80 hover:bg-slate-800 text-[9px] text-slate-400 hover:text-slate-200 font-mono transition-all disabled:opacity-50"
+                className="shrink-0 px-2.5 py-1 rounded-lg border border-[var(--border-card)] bg-[var(--bg-card-hover)]/80 hover:bg-[var(--border-card)] text-[9px] text-[var(--text-muted)] hover:text-[var(--text-primary)] font-mono transition-all disabled:opacity-50"
               >
                 {p}
               </button>
@@ -151,19 +151,19 @@ export default function CopilotWidget() {
           </div>
 
           {/* Input Bar */}
-          <div className="p-3 bg-slate-900/80 border-t border-slate-800 flex items-center gap-2">
+          <div className="p-3 bg-[var(--bg-card-hover)]/80 border-t border-[var(--border-card)] flex items-center gap-2">
             <input
               type="text"
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && send()}
               placeholder="Ask Copilot a compliance question…"
-              className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500 transition-all font-mono"
+              className="flex-1 bg-[var(--bg-card-hover)] border border-[var(--border-card)] rounded-xl px-3 py-2 text-xs text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-[var(--indigo)] transition-all font-mono"
             />
             <button
               onClick={() => send()}
               disabled={!input.trim() || loading}
-              className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 disabled:bg-slate-800 text-white font-semibold text-xs transition-all shadow-md shrink-0 disabled:opacity-40"
+              className="px-3.5 py-2 rounded-xl bg-[var(--indigo)] hover:bg-[var(--indigo-hover)] active:bg-[var(--indigo)]/90 disabled:bg-[var(--border-card)] text-white font-semibold text-xs transition-all shadow-md shrink-0 disabled:opacity-40"
             >
               Send
             </button>
@@ -174,11 +174,47 @@ export default function CopilotWidget() {
       {/* Floating Toggle Button */}
       <button
         onClick={() => setOpen(o => !o)}
-        className="relative group flex items-center gap-2 px-4 py-3 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white font-bold rounded-full shadow-lg shadow-indigo-950/50 transition-all hover:scale-105"
+        className="relative group w-14 h-14 rounded-2xl transition-all duration-200 hover:scale-110 active:scale-95 focus:outline-none"
+        style={{
+          background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
+          boxShadow: open
+            ? '0 0 0 3px rgba(99,102,241,0.4), 0 8px 24px rgba(79,70,229,0.5)'
+            : '0 4px 20px rgba(79,70,229,0.45), 0 2px 8px rgba(0,0,0,0.3)',
+        }}
+        aria-label="Open Compliance Copilot"
       >
-        <span className="text-base">🤖</span>
-        <span className="text-xs tracking-tight font-semibold">Copilot</span>
-        <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-emerald-500 rounded-full border-2 border-slate-950 animate-pulse" />
+        {/* Animated ring */}
+        <span className="absolute inset-0 rounded-2xl animate-ping opacity-20"
+          style={{ background: 'linear-gradient(135deg, #4f46e5, #7c3aed)', animationDuration: '2.5s' }} />
+
+        {/* Icon — morphs between sparkle (closed) and X (open) */}
+        <span className="relative flex items-center justify-center w-full h-full">
+          {open ? (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round">
+              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          ) : (
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" strokeOpacity="0.3" />
+              <path d="M8 12h.01M12 12h.01M16 12h.01" strokeWidth="2.5" />
+            </svg>
+          )}
+        </span>
+
+        {/* Online dot */}
+        {!open && (
+          <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full border-2 border-white"
+            style={{ background: '#10b981', boxShadow: '0 0 6px rgba(16,185,129,0.8)' }} />
+        )}
+
+        {/* Tooltip label */}
+        <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 whitespace-nowrap
+          px-2.5 py-1 rounded-lg text-[11px] font-semibold text-white pointer-events-none
+          opacity-0 group-hover:opacity-100 translate-x-1 group-hover:translate-x-0
+          transition-all duration-150"
+          style={{ background: 'rgba(15,15,30,0.9)', backdropFilter: 'blur(8px)', border: '1px solid rgba(99,102,241,0.3)' }}>
+          AI Copilot
+        </span>
       </button>
     </div>
   )

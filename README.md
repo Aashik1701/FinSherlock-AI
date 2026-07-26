@@ -1,6 +1,6 @@
 # FinSherlock AI
 
-**Agentic Anti-Money Laundering Investigation Platform** — Société Générale Hackathon
+**Agentic Anti-Money Laundering Investigation Platform**
 
 FinSherlock AI is an AI-powered AML analyst. Ask a question in plain English — the system decides what analysis to run, executes it, and returns evidence-backed findings with an escalation recommendation, a SHAP feature breakdown, and a SAR draft ready to export.
 

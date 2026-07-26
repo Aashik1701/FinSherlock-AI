@@ -13,8 +13,8 @@ const fmtDate = s => {
 }
 
 const RISK_CFG = {
-  high:   { label: 'HIGH',   bg: '#2A0F13', border: '#FF5D6C', text: '#FF5D6C', bar: '#FF5D6C' },
-  medium: { label: 'MED',    bg: '#1A1400', border: '#F2A93B', text: '#F2A93B', bar: '#F2A93B' },
+  high:   { label: 'HIGH',   bg: '#FFF1F3', border: '#FF5D6C', text: '#D73A4A', bar: '#FF5D6C' },
+  medium: { label: 'MED',    bg: '#FFF8EA', border: '#F2A93B', text: '#B97910', bar: '#F2A93B' },
 }
 
 const ESC_CFG = {
@@ -23,13 +23,11 @@ const ESC_CFG = {
 }
 
 const CSS = `
-  .vs { --bg:#0A0E14;--bd:#1E2733;--tx:#E7EDF4;--dim:#7C8B9B;--mu:#46525E;
+  .vs { --bg:var(--bg-page);--bd:var(--border-card);--tx:var(--text-primary);--dim:var(--text-secondary);--mu:var(--text-muted);
     background:var(--bg);border:1px solid var(--bd);border-radius:12px;
     padding:22px;color:var(--tx);position:relative;overflow:hidden;
     font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',sans-serif; }
-  .vs::before { content:'';position:absolute;inset:0;
-    background-image:linear-gradient(var(--bd) 1px,transparent 1px),linear-gradient(90deg,var(--bd) 1px,transparent 1px);
-    background-size:28px 28px;opacity:.08;pointer-events:none; }
+  .vs::before { content:none; }
   .mn { font-family:ui-monospace,'JetBrains Mono','SF Mono',Menlo,Consolas,monospace; }
 
   .vs-hd  { display:flex;align-items:flex-start;justify-content:space-between;position:relative;z-index:1;margin-bottom:16px; }
@@ -40,24 +38,24 @@ const CSS = `
   .vs-sb  { font-size:11px;color:var(--dim);margin-top:2px; }
 
   .vs-meta { display:flex;gap:16px;margin-bottom:16px;position:relative;z-index:1; }
-  .vs-mc   { background:#0D1520;border:1px solid var(--bd);border-radius:8px;padding:10px 14px;flex:1; }
+  .vs-mc   { background:var(--bg-card);border:1px solid var(--bd);border-radius:8px;padding:10px 14px;flex:1; }
   .vs-mcl  { font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--mu); }
   .vs-mcv  { font-size:20px;font-weight:700;line-height:1.2;margin-top:3px; }
   .vs-mcs  { font-size:10px;color:var(--dim);margin-top:1px; }
 
   .vs-list { position:relative;z-index:1;border-top:1px solid var(--bd); }
   .vs-row  { border-bottom:1px solid var(--bd);cursor:pointer;transition:background .12s; }
-  .vs-row:hover { background:rgba(255,255,255,.025); }
-  .vs-row.open  { background:rgba(255,255,255,.04); }
+  .vs-row:hover { background:rgba(76,141,255,.04); }
+  .vs-row.open  { background:rgba(76,141,255,.07); }
 
   .vs-main { display:grid;grid-template-columns:1fr 90px 70px 56px;align-items:center;gap:12px;padding:10px 4px; }
-  .vs-acct { font-size:12px;font-weight:700;color:#E7EDF4;font-family:ui-monospace,monospace; }
+  .vs-acct { font-size:12px;font-weight:700;color:var(--text-primary);font-family:ui-monospace,monospace; }
   .vs-date { font-size:10px;color:var(--dim);margin-top:2px; }
 
   .vs-vbar-wrap { display:flex;flex-direction:column;gap:3px; }
   .vs-vbar-row  { display:flex;align-items:center;gap:5px; }
   .vs-vbar-lbl  { font-size:8.5px;color:var(--mu);width:20px;flex-shrink:0; }
-  .vs-vbar-track{ flex:1;height:4px;background:var(--bd);border-radius:2px;overflow:hidden; }
+  .vs-vbar-track{ flex:1;height:4px;background:var(--border-card);border-radius:2px;overflow:hidden; }
   .vs-vbar-fill { height:100%;border-radius:2px;transition:width .4s ease; }
   .vs-vbar-val  { font-size:9px;font-family:ui-monospace,monospace;color:var(--dim);width:30px;text-align:right; }
 
@@ -69,12 +67,12 @@ const CSS = `
 
   .vs-detail { padding:0 4px 12px;border-top:1px solid var(--bd); }
   .vs-dg { display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:10px; }
-  .vs-dc { background:#0D1520;border:1px solid var(--bd);border-radius:6px;padding:8px 10px; }
+  .vs-dc { background:var(--bg-card-hover);border:1px solid var(--bd);border-radius:6px;padding:8px 10px; }
   .vs-dcl { font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--mu); }
   .vs-dcv { font-size:12px;font-weight:700;margin-top:3px; }
 
   .vs-esc { display:flex;align-items:center;justify-content:space-between;margin-top:10px;
-    background:#0D1520;border-radius:6px;padding:8px 12px;border:1px solid var(--bd); }
+    background:var(--bg-card-hover);border-radius:6px;padding:8px 12px;border:1px solid var(--bd); }
   .vs-esc-l { font-size:10px;color:var(--dim); }
   .vs-esc-a { font-size:11px;font-weight:700; }
 
@@ -123,11 +121,11 @@ export default function VelocitySurgeTable({ velocityData: propData }) {
           <div className="vs-sb">Accounts with abnormal transaction frequency spikes</div>
         </div>
         <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: 9, letterSpacing: '.14em', textTransform: 'uppercase', color: '#46525E' }}>Flagged</div>
+          <div style={{ fontSize: 9, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>Flagged</div>
           <div style={{ fontSize: 28, fontWeight: 700, fontFamily: 'ui-monospace,monospace', lineHeight: 1.1, color: '#F2A93B' }}>
             {loading ? '—' : accounts.length}
           </div>
-          <div style={{ fontSize: 10, color: '#7C8B9B', marginTop: 2 }}>
+          <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginTop: 2 }}>
             {data?.accounts_scanned != null ? `of ${data.accounts_scanned.toLocaleString()} scanned` : ''}
           </div>
         </div>
@@ -163,7 +161,7 @@ export default function VelocitySurgeTable({ velocityData: propData }) {
         <div style={{ position: 'relative', zIndex: 1 }}>
           {[1, 2, 3].map(i => (
             <div key={i} className="vs-skel" style={{
-              height: 56, background: '#0D1520', borderRadius: 6, marginBottom: 8,
+              height: 56, background: 'var(--bg-card-hover)', border: '1px solid var(--border-card)', borderRadius: 6, marginBottom: 8,
               opacity: 1 - i * 0.15,
             }} />
           ))}
@@ -172,8 +170,8 @@ export default function VelocitySurgeTable({ velocityData: propData }) {
 
       {/* Error */}
       {error && !loading && (
-        <div style={{ position: 'relative', zIndex: 1, background: '#2A0F13', border: '1px solid #FF5D6C44',
-          borderRadius: 8, padding: '12px 16px', fontSize: 11, color: '#FF5D6C' }}>
+        <div style={{ position: 'relative', zIndex: 1, background: 'var(--red-bg)', border: '1px solid var(--red-border)',
+          borderRadius: 8, padding: '12px 16px', fontSize: 11, color: '#D73A4A' }}>
           Failed to load velocity data: {error}
         </div>
       )}
@@ -181,14 +179,14 @@ export default function VelocitySurgeTable({ velocityData: propData }) {
       {/* Empty */}
       {!loading && !error && accounts.length === 0 && (
         <div className="vs-empty">
-          <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#0D1520',
-            border: '1px solid #1E2733', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#46525E" strokeWidth="1.5">
+          <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--bg-card-hover)',
+            border: '1px solid var(--border-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="1.5">
               <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
             </svg>
           </div>
-          <p style={{ fontSize: 13, fontWeight: 600, color: '#7C8B9B' }}>No velocity spikes detected</p>
-          <p style={{ fontSize: 11, color: '#46525E', marginTop: 6, textAlign: 'center' }}>
+          <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>No velocity spikes detected</p>
+          <p style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 6, textAlign: 'center' }}>
             {data?.accounts_scanned != null
               ? `${data.accounts_scanned.toLocaleString()} accounts scanned · threshold ≥${data.spike_ratio_threshold}× baseline`
               : 'No accounts met the spike threshold in this window'}
@@ -236,7 +234,7 @@ export default function VelocitySurgeTable({ velocityData: propData }) {
                     <div className="vs-vbar-row">
                       <span className="vs-vbar-lbl">Base</span>
                       <div className="vs-vbar-track">
-                        <div className="vs-vbar-fill" style={{ width: `${basePct}%`, background: '#46525E' }} />
+                        <div className="vs-vbar-fill" style={{ width: `${basePct}%`, background: 'var(--text-muted)' }} />
                       </div>
                       <span className="vs-vbar-val">{acct.baseline_velocity_per_day.toFixed(2)}</span>
                     </div>
@@ -244,10 +242,10 @@ export default function VelocitySurgeTable({ velocityData: propData }) {
 
                   {/* Volume */}
                   <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, fontFamily: 'ui-monospace,monospace', color: '#E7EDF4' }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, fontFamily: 'ui-monospace,monospace', color: 'var(--text-primary)' }}>
                       {fmtUSD(acct.total_volume_recent_usd)}
                     </div>
-                    <div style={{ fontSize: 9, color: '#46525E', marginTop: 1 }}>{acct.txn_count_recent} txns</div>
+                    <div style={{ fontSize: 9, color: 'var(--text-secondary)', marginTop: 1 }}>{acct.txn_count_recent} txns</div>
                   </div>
 
                   {/* Spike ratio */}
@@ -267,19 +265,19 @@ export default function VelocitySurgeTable({ velocityData: propData }) {
                       </div>
                       <div className="vs-dc">
                         <div className="vs-dcl">Baseline Velocity</div>
-                        <div className="vs-dcv mn" style={{ color: '#7C8B9B' }}>{acct.baseline_velocity_per_day.toFixed(3)} txns/day</div>
+                        <div className="vs-dcv mn" style={{ color: 'var(--text-secondary)' }}>{acct.baseline_velocity_per_day.toFixed(3)} txns/day</div>
                       </div>
                       <div className="vs-dc">
                         <div className="vs-dcl">Total Volume ({data?.window_days}d)</div>
-                        <div className="vs-dcv mn" style={{ color: '#E7EDF4' }}>{fmtUSD(acct.total_volume_recent_usd)}</div>
+                        <div className="vs-dcv mn" style={{ color: 'var(--text-primary)' }}>{fmtUSD(acct.total_volume_recent_usd)}</div>
                       </div>
                       <div className="vs-dc">
                         <div className="vs-dcl">Transactions ({data?.window_days}d)</div>
-                        <div className="vs-dcv mn" style={{ color: '#E7EDF4' }}>{acct.txn_count_recent}</div>
+                        <div className="vs-dcv mn" style={{ color: 'var(--text-primary)' }}>{acct.txn_count_recent}</div>
                       </div>
                       <div className="vs-dc">
                         <div className="vs-dcl">Spike Detected</div>
-                        <div className="vs-dcv mn" style={{ color: '#7C8B9B' }}>{fmtDate(acct.spike_date)}</div>
+                        <div className="vs-dcv mn" style={{ color: 'var(--text-secondary)' }}>{fmtDate(acct.spike_date)}</div>
                       </div>
                       <div className="vs-dc">
                         <div className="vs-dcl">Spike Ratio</div>
@@ -288,12 +286,12 @@ export default function VelocitySurgeTable({ velocityData: propData }) {
                     </div>
 
                     {/* Spike ratio bar */}
-                    <div style={{ marginTop: 10, background: '#0D1520', borderRadius: 6, padding: '8px 12px', border: '1px solid var(--bd)' }}>
+                    <div style={{ marginTop: 10, background: 'var(--bg-card-hover)', borderRadius: 6, padding: '8px 12px', border: '1px solid var(--bd)' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                        <span style={{ fontSize: 9, color: '#46525E', letterSpacing: '.1em', textTransform: 'uppercase' }}>Spike Intensity</span>
+                        <span style={{ fontSize: 9, color: 'var(--text-muted)', letterSpacing: '.1em', textTransform: 'uppercase' }}>Spike Intensity</span>
                         <span style={{ fontSize: 9, color: cfg.text, fontFamily: 'ui-monospace,monospace' }}>{acct.spike_ratio.toFixed(1)}× / {maxRatio.toFixed(1)}× max</span>
                       </div>
-                      <div style={{ height: 6, background: '#1E2733', borderRadius: 3, overflow: 'hidden' }}>
+                      <div style={{ height: 6, background: 'var(--border-card)', borderRadius: 3, overflow: 'hidden' }}>
                         <div style={{ height: '100%', width: `${ratioPct}%`, background: `linear-gradient(90deg, ${cfg.bar}88, ${cfg.bar})`, borderRadius: 3, transition: 'width .4s ease' }} />
                       </div>
                     </div>
@@ -306,7 +304,7 @@ export default function VelocitySurgeTable({ velocityData: propData }) {
                       </div>
                       <div style={{ textAlign: 'right' }}>
                         <div className="vs-esc-l">FinCEN Reference</div>
-                        <div style={{ fontSize: 10, fontFamily: 'ui-monospace,monospace', color: '#7C8B9B', marginTop: 2 }}>FIN-2014-A005</div>
+                        <div style={{ fontSize: 10, fontFamily: 'ui-monospace,monospace', color: 'var(--text-secondary)', marginTop: 2 }}>FIN-2014-A005</div>
                       </div>
                     </div>
                   </div>
@@ -318,7 +316,7 @@ export default function VelocitySurgeTable({ velocityData: propData }) {
       )}
 
       {!loading && accounts.length > 0 && (
-        <div style={{ position: 'relative', zIndex: 1, fontSize: 9, color: '#46525E', textAlign: 'center', paddingTop: 10 }}>
+        <div style={{ position: 'relative', zIndex: 1, fontSize: 9, color: 'var(--text-muted)', textAlign: 'center', paddingTop: 10 }}>
           Click a row to expand details · {data?.spike_ratio_threshold}× baseline threshold · {data?.window_days}d window
         </div>
       )}

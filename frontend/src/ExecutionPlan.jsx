@@ -36,17 +36,17 @@ export default function ExecutionPlan({ plan = [], plannerSource = '', timing = 
       <div className="flex items-center justify-between">
         <div>
           <p className="eyebrow">Two-Brain Plan Trace</p>
-          <p className="text-xs text-gray-500 mt-1">
-            <span className="font-semibold text-gray-700">LLM Planner → Deterministic Tools</span>
+          <p className="text-xs text-[var(--text-secondary)] mt-1">
+            <span className="font-semibold text-[var(--text-primary)]">LLM Planner → Deterministic Tools</span>
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-[10px] text-gray-400 font-mono">
-            total <span className="font-bold text-gray-600">{totalTime > 0 ? `${(totalTime * 1000).toFixed(0)}ms` : '…'}</span>
+          <span className="text-[10px] text-[var(--text-muted)] font-mono">
+            total <span className="font-bold text-[var(--text-primary)]">{totalTime > 0 ? `${(totalTime * 1000).toFixed(0)}ms` : '…'}</span>
           </span>
           <button
             onClick={handleExportAudit}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 text-[10px] font-semibold text-gray-600 hover:text-gray-800 transition-all"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border-card)] bg-[var(--bg-card-hover)] hover:bg-[var(--border-card)] text-[10px] font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all"
           >
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -76,8 +76,8 @@ export default function ExecutionPlan({ plan = [], plannerSource = '', timing = 
                   : isRunning
                     ? 'bg-orange-50 border-orange-200'
                     : isPending
-                      ? 'bg-gray-50/50 border-gray-100'
-                      : 'bg-white border-gray-200/80'
+                      ? 'bg-[var(--bg-card-hover)]/50 border-[var(--border-card)]'
+                      : 'bg-[var(--bg-card)] border-[var(--border-card)]'
               }`}
             >
               {/* Step indicator */}
@@ -88,7 +88,7 @@ export default function ExecutionPlan({ plan = [], plannerSource = '', timing = 
                     ? 'bg-emerald-100 text-emerald-600'
                     : isRunning
                       ? 'bg-orange-100 text-orange-600'
-                      : 'bg-gray-100 text-gray-400'
+                      : 'bg-[var(--border-card)] text-[var(--text-muted)]'
               }`}>
                 {isDone ? (
                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
@@ -110,10 +110,10 @@ export default function ExecutionPlan({ plan = [], plannerSource = '', timing = 
 
               {/* Timing badge */}
               <span className={`text-[10px] font-mono tabular-nums ${
-                isFailed  ? 'text-red-500' :
-                isRunning ? 'text-orange-500 animate-pulse' :
-                isPending ? 'text-gray-300' :
-                t != null ? 'text-gray-500' : 'text-gray-300'
+                isFailed  ? 'text-[var(--red)]' :
+                isRunning ? 'text-[var(--orange)] animate-pulse' :
+                isPending ? 'text-[var(--text-muted)]' :
+                t != null ? 'text-[var(--text-secondary)]' : 'text-[var(--text-muted)]'
               }`}>
                 {isRunning  ? 'running…' :
                  isPending  ? '—' :

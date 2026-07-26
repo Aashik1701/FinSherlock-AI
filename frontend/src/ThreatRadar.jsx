@@ -84,14 +84,11 @@ const SEV_STYLE = {
 }
 
 const CSS = `
-  .tr { --bg:#FFFFFF;--bd:#DDE4EC;--tx:#12212F;--dim:#5F7082;--mu:#7A8794;
-    background:linear-gradient(180deg,#FFFFFF 0%,#F8FBFE 100%);border:1px solid var(--bd);border-radius:12px;
+  .tr { --bg:var(--bg-card);--bd:var(--border-card);--tx:var(--text-primary);--dim:var(--text-secondary);--mu:var(--text-muted);
+    background:var(--bg-card);border:1px solid var(--bd);border-radius:12px;
     padding:22px;color:var(--tx);position:relative;overflow:hidden;user-select:none;
-    box-shadow:0 12px 32px rgba(18,33,47,.06);
     font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',sans-serif; }
-  .tr::before { content:'';position:absolute;inset:0;
-    background-image:linear-gradient(var(--bd) 1px,transparent 1px),linear-gradient(90deg,var(--bd) 1px,transparent 1px);
-    background-size:28px 28px;opacity:.03;pointer-events:none; }
+  .tr::before { content:none; }
   .mn { font-family:ui-monospace,'JetBrains Mono','SF Mono',Menlo,Consolas,monospace; }
 
   .tr-hd { display:flex;align-items:flex-start;justify-content:space-between;position:relative;z-index:1;margin-bottom:16px; }
@@ -105,7 +102,7 @@ const CSS = `
   .tr-svl { font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--mu); }
   .tr-svv { font-size:24px;font-weight:700;line-height:1.1;margin-top:2px; }
   .tr-svs { font-size:10px;color:var(--dim);margin-top:2px; }
-  .tr-bt { width:88px;height:2px;background:#E8EEF5;border-radius:2px;margin-top:7px;overflow:hidden;margin-left:auto; }
+  .tr-bt { width:88px;height:2px;background:var(--border-card);border-radius:2px;margin-top:7px;overflow:hidden;margin-left:auto; }
   .tr-bf { height:100%;background:linear-gradient(90deg,#4C8DFF,#34D6C1);transition:width .6s ease; }
 
   .tr-rw { position:relative;display:flex;justify-content:center;margin:0 0 14px;z-index:1; }
@@ -115,9 +112,9 @@ const CSS = `
   .tr-sk { animation:trf 1.4s ease-in-out infinite; }
   @keyframes trf { 0%,100%{opacity:.35} 50%{opacity:.65} }
 
-  .tr-dp { position:relative;z-index:1;background:#FFFFFF;border-radius:8px;padding:14px;margin-bottom:14px;transition:opacity .2s;box-shadow:0 6px 18px rgba(18,33,47,.04); }
+  .tr-dp { position:relative;z-index:1;background:var(--bg-card);border-radius:8px;padding:14px;margin-bottom:14px;transition:opacity .2s; } 
   .tr-dg { display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px; }
-  .tr-dc { background:#F8FBFE;border:1px solid var(--bd);border-radius:6px;padding:8px 10px; }
+  .tr-dc { background:var(--bg-card-hover);border:1px solid var(--bd);border-radius:6px;padding:8px 10px; }
   .tr-dcl { font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--mu); }
   .tr-dcv { font-size:11px;font-weight:600;color:var(--dim);margin-top:3px; }
 
@@ -130,7 +127,7 @@ const CSS = `
   .tr-rl { font-size:12px;font-weight:600; }
   .tr-rt { font-size:10px;color:var(--dim);margin-top:1px; }
   .tr-rc { font-size:14px;font-weight:700;text-align:right; }
-  .tr-rtr { height:2px;background:#E8EEF5;border-radius:2px;overflow:hidden; }
+  .tr-rtr { height:2px;background:var(--border-card);border-radius:2px;overflow:hidden; }
   .tr-rfi { height:100%;border-radius:2px;transition:width .4s ease; }
   .tr-sv-badge { font-size:8px;font-weight:700;letter-spacing:.08em;padding:2px 5px;border-radius:3px;font-family:ui-monospace,monospace; }
   .tr-hn { font-size:10px;color:var(--mu);text-align:center;padding:10px 0 2px; }
@@ -229,7 +226,7 @@ export default function ThreatRadar({ version = 0 }) {
 
           {/* Grid rings */}
           {RINGS.map((lvl, i) => (
-            <polygon key={i} points={ringPts(lvl)} fill="none" stroke="#DDE4EC" strokeWidth="1" />
+            <polygon key={i} points={ringPts(lvl)} fill="none" stroke="var(--border-card)" strokeWidth="1" />
           ))}
 
           {/* Spokes — highlighted for active axis */}
@@ -237,19 +234,19 @@ export default function ThreatRadar({ version = 0 }) {
             const [x, y] = polar(ang(i), R_OUTER)
             const on     = activeKey === seg.key
             return <line key={i} x1={CENTER} y1={CENTER} x2={x} y2={y}
-                stroke={on ? seg.color : '#DDE4EC'} strokeWidth={on ? 1.5 : 1} opacity={on ? 0.75 : 1} />
+                stroke={on ? seg.color : 'var(--border-card)'} strokeWidth={on ? 1.5 : 1} opacity={on ? 0.75 : 1} />
           })}
 
           {/* Ring % labels */}
           {[0.25, 0.5, 0.75].map(lvl => {
             const [rx, ry] = polar(-Math.PI / 2 + 0.2, lvl * R_OUTER)
-            return <text key={lvl} x={rx} y={ry} fontSize="7" fill="#7A8794" textAnchor="middle" className="mn">
+            return <text key={lvl} x={rx} y={ry} fontSize="7" fill="var(--text-muted)" textAnchor="middle" className="mn">
               {Math.round(lvl * 100)}%
             </text>
           })}
 
           {loading ? (
-            <polygon points={ringPts(0.35)} fill="#DDE4EC" opacity="0.55" className="tr-sk" />
+            <polygon points={ringPts(0.35)} fill="var(--border-card)" opacity="0.55" className="tr-sk" />
           ) : (
             <>
               {/* Sweep line */}
@@ -285,19 +282,19 @@ export default function ThreatRadar({ version = 0 }) {
                     <circle cx={v.x} cy={v.y}
                       r={on ? 7 : v.count > 0 ? 5 : 3}
                       fill={v.count > 0 ? v.color : '#2A3542'}
-                      stroke="#FFFFFF" strokeWidth="1.5"
+                      stroke="var(--bg-card)" strokeWidth="1.5"
                       style={{ transition: 'r .15s, fill .15s' }} />
                     {/* Axis label */}
                     <text x={v.lx} y={v.ly + (v.sin < -0.3 ? -3 : v.sin > 0.3 ? 8 : 2)}
                       textAnchor={v.anchor} fontSize="9" className="mn"
-                      fill={on ? v.color : '#7C8B9B'} letterSpacing="0.06em"
+                      fill={on ? v.color : 'var(--text-secondary)'} letterSpacing="0.06em"
                       style={{ transition: 'fill .15s' }}>
                       {v.label.toUpperCase()}
                     </text>
                     {/* Count */}
                     <text x={v.lx} y={v.ly + (v.sin < -0.3 ? 9 : v.sin > 0.3 ? 21 : 14)}
                       textAnchor={v.anchor} fontSize="13" fontWeight="700" className="mn"
-                      fill={on ? v.color : v.count > 0 ? v.color : '#46525E'}
+                      fill={on ? v.color : v.count > 0 ? v.color : 'var(--text-muted)'}
                       style={{ transition: 'fill .15s' }}>
                       {v.count}
                     </text>
@@ -308,15 +305,15 @@ export default function ThreatRadar({ version = 0 }) {
           )}
 
           {/* Center */}
-          <circle cx={CENTER} cy={CENTER} r="28" fill="#FFFFFF" stroke="#DDE4EC" strokeWidth="1" />
+          <circle cx={CENTER} cy={CENTER} r="28" fill="var(--bg-card)" stroke="var(--border-card)" strokeWidth="1" />
           <line x1={CENTER - 5} y1={CENTER} x2={CENTER + 5} y2={CENTER} stroke="#34D6C1" strokeWidth="0.8" />
           <line x1={CENTER} y1={CENTER - 5} x2={CENTER} y2={CENTER + 5} stroke="#34D6C1" strokeWidth="0.8" />
           {activeSeg ? (<>
             <text x={CENTER} y={CENTER - 6} textAnchor="middle" fontSize="18" fontWeight="700" className="mn" fill={activeSeg.color}>{activeCnt}</text>
-            <text x={CENTER} y={CENTER + 7} textAnchor="middle" fontSize="6.5" className="mn" fill="#46525E" letterSpacing="0.12em">CASES</text>
+            <text x={CENTER} y={CENTER + 7} textAnchor="middle" fontSize="6.5" className="mn" fill="var(--text-muted)" letterSpacing="0.12em">CASES</text>
           </>) : (<>
-            <text x={CENTER} y={CENTER - 6} textAnchor="middle" fontSize="18" fontWeight="700" className="mn" fill="#12212F">{counts.total}</text>
-            <text x={CENTER} y={CENTER + 7} textAnchor="middle" fontSize="6.5" className="mn" fill="#46525E" letterSpacing="0.12em">ACTIVE</text>
+            <text x={CENTER} y={CENTER - 6} textAnchor="middle" fontSize="18" fontWeight="700" className="mn" fill="var(--text-primary)">{counts.total}</text>
+            <text x={CENTER} y={CENTER + 7} textAnchor="middle" fontSize="6.5" className="mn" fill="var(--text-muted)" letterSpacing="0.12em">ACTIVE</text>
           </>)}
         </svg>
       </div>
@@ -332,16 +329,16 @@ export default function ThreatRadar({ version = 0 }) {
                 <span className="tr-sv-badge" style={SEV_STYLE[activeVtx?.sev ?? 'NIL']}>{activeVtx?.sev}</span>
                 {selected && (
                   <button onClick={() => setSelected(null)}
-                    style={{ marginLeft: 'auto', fontSize: 11, color: '#5F7082', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                    style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text-secondary)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
                     ✕ dismiss
                   </button>
                 )}
               </div>
-              <p style={{ fontSize: 11, color: '#5F7082', lineHeight: 1.6 }}>{activeSeg.detail}</p>
+              <p style={{ fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.6 }}>{activeSeg.detail}</p>
             </div>
             <div style={{ textAlign: 'right', flexShrink: 0 }}>
               <div style={{ fontSize: 28, fontWeight: 700, color: activeSeg.color, fontFamily: 'ui-monospace,monospace', lineHeight: 1 }}>{activeCnt}</div>
-              <div style={{ fontSize: 9, color: '#46525E', marginTop: 3, letterSpacing: '.1em' }}>ACCOUNTS</div>
+              <div style={{ fontSize: 9, color: 'var(--text-muted)', marginTop: 3, letterSpacing: '.1em' }}>ACCOUNTS</div>
             </div>
           </div>
           <div className="tr-dg">
@@ -373,10 +370,10 @@ export default function ThreatRadar({ version = 0 }) {
             >
               <span className="tr-dot" style={{ background: v.count > 0 ? v.color : '#2A3542' }} />
               <div>
-                <div className="tr-rl" style={{ color: on ? v.color : v.count > 0 ? '#12212F' : '#7A8794' }}>{v.label}</div>
+                <div className="tr-rl" style={{ color: on ? v.color : v.count > 0 ? 'var(--text-primary)' : 'var(--text-muted)' }}>{v.label}</div>
                 <div className="tr-rt">{v.tag}</div>
               </div>
-              <div className="tr-rc mn" style={{ color: v.count > 0 ? v.color : '#46525E' }}>
+              <div className="tr-rc mn" style={{ color: v.count > 0 ? v.color : 'var(--text-muted)' }}>
                 {loading ? '—' : v.count.toLocaleString()}
               </div>
               <div className="tr-rtr">
@@ -391,7 +388,7 @@ export default function ThreatRadar({ version = 0 }) {
       </div>
 
       {!selected && !hovered && (
-        <div className="tr-hn">Click or hover a typology to inspect</div>
+        <div className="tr-hn" style={{ color: 'var(--text-muted)' }}>Click or hover a typology to inspect</div>
       )}
     </div>
   )

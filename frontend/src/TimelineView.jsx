@@ -49,23 +49,23 @@ export default function TimelineView({ structEntry, smurfEntry, layerPath }) {
           {['all', 'structuring', 'smurfing', 'layering'].map(t => (
             <button key={t} onClick={() => setFilter(t)}
               className={`px-2 py-0.5 rounded capitalize font-mono transition-colors ${
-                filter === t ? 'bg-gray-100 text-gray-800 border border-gray-200' : 'text-gray-500 hover:text-gray-700'
+                filter === t ? 'bg-[var(--border-card)] text-[var(--text-primary)] border border-[var(--border-card)]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
               }`}>{t}</button>
           ))}
         </div>
       </div>
 
-      <div className="relative pl-6 space-y-4 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-gray-200">
+      <div className="relative pl-6 space-y-4 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-[var(--border-card)]">
         {filteredEvents.map((evt, idx) => (
           <div key={idx} className="relative group">
-            <div className="absolute -left-6 top-0.5 w-5 h-5 rounded-full bg-white border border-gray-200 flex items-center justify-center text-[10px] shadow-sm">{evt.icon}</div>
-            <div className="bg-white border border-gray-200 rounded-xl p-3.5 space-y-1 hover:border-gray-300 transition-colors">
+            <div className="absolute -left-6 top-0.5 w-5 h-5 rounded-full bg-[var(--bg-card)] border border-[var(--border-card)] flex items-center justify-center text-[10px] shadow-sm">{evt.icon}</div>
+            <div className="bg-[var(--bg-card)] border border-[var(--border-card)] rounded-xl p-3.5 space-y-1 hover:border-[var(--text-muted)] transition-colors">
               <div className="flex items-center justify-between flex-wrap gap-2">
-                <span className="font-mono text-[11px] text-gray-500 font-semibold">{fmtTS(evt.timestamp)}</span>
+                <span className="font-mono text-[11px] text-[var(--text-secondary)] font-semibold">{fmtTS(evt.timestamp)}</span>
                 <span className={`px-2 py-0.5 rounded text-[9px] font-mono border font-semibold ${BADGE[evt.type]}`}>{evt.badge}</span>
               </div>
-              <p className="text-xs font-semibold text-gray-800">{evt.title}</p>
-              <p className="text-[11px] text-gray-500">{evt.subtitle}</p>
+              <p className="text-xs font-semibold text-[var(--text-primary)]">{evt.title}</p>
+              <p className="text-[11px] text-[var(--text-secondary)]">{evt.subtitle}</p>
             </div>
           </div>
         ))}

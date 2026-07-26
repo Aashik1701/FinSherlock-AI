@@ -43,14 +43,14 @@ function CaseCard({ c, onClick }) {
   return (
     <button
       onClick={() => onClick(c)}
-      className="w-full text-left bg-white border border-gray-200 hover:border-orange-300 rounded-lg px-3 py-2.5 transition-all shadow-sm space-y-1.5"
+      className="w-full text-left bg-[var(--bg-card)] border border-[var(--border-card)] hover:border-orange-300 rounded-lg px-3 py-2.5 transition-all shadow-sm space-y-1.5"
     >
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[10px] font-mono font-bold text-gray-600 truncate">{c.case_id}</span>
+        <span className="text-[10px] font-mono font-bold text-[var(--text-secondary)] truncate">{c.case_id}</span>
         <StatusBadge status={c.status} />
       </div>
-      <p className="text-[11px] font-mono font-semibold text-gray-800 truncate">{c.account_id}</p>
-      <div className="flex items-center justify-between text-[9px] text-gray-400">
+      <p className="text-[11px] font-mono font-semibold text-[var(--text-primary)] truncate">{c.account_id}</p>
+      <div className="flex items-center justify-between text-[9px] text-[var(--text-muted)]">
         <span>{c.assigned_to || 'unassigned'}</span>
         <span>{fmtDate(c.created_at)}</span>
       </div>
@@ -87,27 +87,27 @@ function CreateCaseModal({ onClose, onCreated }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
-      <div className="bg-white border border-gray-200 rounded-xl w-full max-w-md mx-3 p-5 space-y-4 shadow-xl">
+      <div className="bg-[var(--bg-card)] border border-[var(--border-card)] rounded-xl w-full max-w-md mx-3 p-5 space-y-4 shadow-xl">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-bold text-gray-900">New Case</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">&times;</button>
+          <h3 className="text-sm font-bold text-[var(--text-primary)]">New Case</h3>
+          <button onClick={onClose} className="text-[var(--text-muted)] hover:text-[var(--text-secondary)]">&times;</button>
         </div>
         <form onSubmit={handleSubmit} className="space-y-3">
           <div>
-            <label className="block text-[10px] font-bold text-gray-600 uppercase tracking-wider mb-1">Account ID *</label>
-            <input value={accountId} onChange={e => setAccountId(e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100" placeholder="e.g. ACC_A" required />
+            <label className="block text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1">Account ID *</label>
+            <input value={accountId} onChange={e => setAccountId(e.target.value)} className="w-full border border-[var(--border-card)] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100" placeholder="e.g. ACC_A" required />
           </div>
           <div>
-            <label className="block text-[10px] font-bold text-gray-600 uppercase tracking-wider mb-1">Query / Context</label>
-            <input value={queryText} onChange={e => setQueryText(e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100" placeholder="What triggered this case?" />
+            <label className="block text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1">Query / Context</label>
+            <input value={queryText} onChange={e => setQueryText(e.target.value)} className="w-full border border-[var(--border-card)] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100" placeholder="What triggered this case?" />
           </div>
           <div>
-            <label className="block text-[10px] font-bold text-gray-600 uppercase tracking-wider mb-1">Notes</label>
-            <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 resize-none" />
+            <label className="block text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1">Notes</label>
+            <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3} className="w-full border border-[var(--border-card)] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 resize-none" />
           </div>
           {error && <p className="text-xs text-red-600">{error}</p>}
           <div className="flex justify-end gap-2 pt-2">
-            <button type="button" onClick={onClose} className="px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-500 hover:text-gray-700">Cancel</button>
+            <button type="button" onClick={onClose} className="px-3 py-1.5 rounded-lg text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)]">Cancel</button>
             <button type="submit" disabled={submitting || !accountId.trim()} className="px-4 py-1.5 rounded-lg text-xs font-bold bg-orange-500 text-white hover:bg-orange-600 disabled:opacity-40">{submitting ? 'Creating…' : 'Create Case'}</button>
           </div>
         </form>
@@ -154,49 +154,49 @@ function CaseDetailModal({ caseData, onClose, onUpdated }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
-      <div className="bg-white border border-gray-200 rounded-xl w-full max-w-lg mx-3 p-5 space-y-4 shadow-xl">
+      <div className="bg-[var(--bg-card)] border border-[var(--border-card)] rounded-xl w-full max-w-lg mx-3 p-5 space-y-4 shadow-xl">
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="text-sm font-bold text-gray-900 font-mono">{caseData.case_id}</h3>
+              <h3 className="text-sm font-bold text-[var(--text-primary)] font-mono">{caseData.case_id}</h3>
               <StatusBadge status={caseData.status} />
               {caseData.resolution && <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold border ${RESOLUTION_STYLES[caseData.resolution]}`}>{caseData.resolution === 'true_positive' ? 'True Positive' : 'False Positive'}</span>}
             </div>
-            <p className="text-xs text-gray-500">Account <span className="font-mono text-gray-700">{caseData.account_id}</span> · Created {fmtDate(caseData.created_at)}</p>
+            <p className="text-xs text-[var(--text-secondary)]">Account <span className="font-mono text-[var(--text-primary)]">{caseData.account_id}</span> · Created {fmtDate(caseData.created_at)}</p>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">&times;</button>
+          <button onClick={onClose} className="text-[var(--text-muted)] hover:text-[var(--text-secondary)]">&times;</button>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          <div className="bg-gray-50 rounded-lg px-3 py-2 border border-gray-200">
-            <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Risk Score</p>
+          <div className="bg-[var(--bg-card-hover)] rounded-lg px-3 py-2 border border-[var(--border-card)]">
+            <p className="text-[9px] font-bold text-[var(--text-secondary)] uppercase tracking-widest">Risk Score</p>
             <p className={`text-lg font-bold font-mono ${caseData.risk_score != null && caseData.risk_score >= 0.65 ? 'text-red-600' : caseData.risk_score >= 0.30 ? 'text-amber-600' : 'text-emerald-600'}`}>{caseData.risk_score != null ? caseData.risk_score.toFixed(3) : '—'}</p>
           </div>
-          <div className="bg-gray-50 rounded-lg px-3 py-2 border border-gray-200">
-            <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Assigned To</p>
-            <p className="text-sm font-semibold text-gray-700">{caseData.assigned_to || '—'}</p>
+          <div className="bg-[var(--bg-card-hover)] rounded-lg px-3 py-2 border border-[var(--border-card)]">
+            <p className="text-[9px] font-bold text-[var(--text-secondary)] uppercase tracking-widest">Assigned To</p>
+            <p className="text-sm font-semibold text-[var(--text-primary)]">{caseData.assigned_to || '—'}</p>
           </div>
         </div>
 
         {caseData.query_text && (
-          <div className="bg-gray-50 rounded-lg px-4 py-3 border border-gray-200">
-            <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-1">Query</p>
-            <p className="text-xs text-gray-600 font-mono">{caseData.query_text}</p>
+          <div className="bg-[var(--bg-card-hover)] rounded-lg px-4 py-3 border border-[var(--border-card)]">
+            <p className="text-[9px] font-bold text-[var(--text-secondary)] uppercase tracking-widest mb-1">Query</p>
+            <p className="text-xs text-[var(--text-secondary)] font-mono">{caseData.query_text}</p>
           </div>
         )}
 
         <div>
-          <label className="block text-[10px] font-bold text-gray-600 uppercase tracking-widest mb-1">Notes</label>
-          <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={4} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 resize-none" placeholder="Add findings, rationale, or next steps…" />
-          <button onClick={saveNotes} disabled={updating || notes === (caseData.notes || '')} className="mt-1.5 px-3 py-1 rounded text-[10px] font-semibold bg-gray-100 text-gray-600 hover:text-gray-800 disabled:opacity-30 transition-colors">Save Notes</button>
+          <label className="block text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-widest mb-1">Notes</label>
+          <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={4} className="w-full border border-[var(--border-card)] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 resize-none" placeholder="Add findings, rationale, or next steps…" />
+          <button onClick={saveNotes} disabled={updating || notes === (caseData.notes || '')} className="mt-1.5 px-3 py-1 rounded text-[10px] font-semibold bg-[var(--border-card)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] disabled:opacity-30 transition-colors">Save Notes</button>
         </div>
 
         {actionError && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{actionError}</p>}
 
-        <div className="border-t border-gray-200 pt-4 space-y-3">
+        <div className="border-t border-[var(--border-card)] pt-4 space-y-3">
           {transitions.length > 0 && (
             <div>
-              <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-2">Advance</p>
+              <p className="text-[9px] font-bold text-[var(--text-secondary)] uppercase tracking-widest mb-2">Advance</p>
               <div className="flex flex-wrap gap-2">
                 {transitions.map(s => (
                   <button key={s} onClick={() => transitionTo(s)} disabled={updating}
@@ -286,7 +286,7 @@ export default function Cases() {
       <div className="flex items-center justify-between">
         <div>
           <p className="eyebrow">Investigation Cases</p>
-          <p className="text-sm text-gray-500 mt-0.5">{total} case{total !== 1 ? 's' : ''} · Track investigations, assign reviewers, mark resolutions</p>
+          <p className="text-sm text-[var(--text-secondary)] mt-0.5">{total} case{total !== 1 ? 's' : ''} · Track investigations, assign reviewers, mark resolutions</p>
         </div>
         <button onClick={() => setShowCreate(true)} className="px-4 py-1.5 rounded-lg text-[11px] font-bold bg-orange-500 text-white hover:bg-orange-600 transition-all">+ New Case</button>
       </div>
@@ -329,14 +329,14 @@ export default function Cases() {
             <div key={col.key} className="space-y-3">
               <div className="flex items-center gap-2">
                 <div className={`w-2 h-2 rounded-full ${col.color}`} />
-                <p className="text-xs font-bold text-gray-700">{col.label}</p>
-                <span className="text-xs font-mono text-gray-400 px-1.5 py-0.5 rounded bg-gray-50 border border-gray-200">{col.items.length}</span>
+                <p className="text-xs font-bold text-[var(--text-primary)]">{col.label}</p>
+                <span className="text-xs font-mono text-[var(--text-muted)] px-1.5 py-0.5 rounded bg-[var(--bg-card-hover)] border border-[var(--border-card)]">{col.items.length}</span>
               </div>
               <div className="space-y-2 min-h-[200px]">
                 {col.items.map(c => <CaseCard key={c.case_id} c={c} onClick={setSelectedCase} />)}
                 {col.items.length === 0 && (
                   <div className="text-center py-8">
-                    <p className="text-xs text-gray-400">No cases</p>
+                    <p className="text-xs text-[var(--text-muted)]">No cases</p>
                   </div>
                 )}
               </div>

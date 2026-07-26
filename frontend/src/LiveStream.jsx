@@ -30,12 +30,12 @@ const SPEED_PRESETS = [
 function TxnRow({ txn, isNew }) {
   const level = txn.is_laundering ? 'high' : (txn.synthetic ? 'medium' : 'low')
   return (
-    <div className={`flex items-center gap-3 px-3 py-1.5 text-[11px] font-mono border-b border-gray-100 transition-all ${isNew ? 'bg-orange-50' : 'hover:bg-gray-50/50'} ${txn.synthetic ? 'bg-purple-50 border-l-2 border-l-purple-400' : ''}`}>
-      <span className="text-gray-500 w-28 shrink-0">{fmtTS(txn.timestamp)}</span>
-      <span className={`font-semibold w-20 shrink-0 ${txn.is_laundering ? 'text-red-600' : 'text-gray-700'}`}>{fmtUSD(txn.amount)}</span>
-      <span className="text-gray-500 shrink-0 font-mono text-[10px]">{txn.sender?.slice(-10)}</span>
-      <span className="text-gray-400">→</span>
-      <span className="text-gray-500 shrink-0 font-mono text-[10px]">{txn.receiver?.slice(-10)}</span>
+    <div className={`flex items-center gap-3 px-3 py-1.5 text-[11px] font-mono border-b border-[var(--border-card)] transition-all ${isNew ? 'bg-[var(--orange-bg)]' : 'hover:bg-[var(--bg-card-hover)]/50'} ${txn.synthetic ? 'bg-purple-50 border-l-2 border-l-purple-400' : ''}`}>
+      <span className="text-[var(--text-secondary)] w-28 shrink-0">{fmtTS(txn.timestamp)}</span>
+      <span className={`font-semibold w-20 shrink-0 ${txn.is_laundering ? 'text-red-600' : 'text-[var(--text-primary)]'}`}>{fmtUSD(txn.amount)}</span>
+      <span className="text-[var(--text-secondary)] shrink-0 font-mono text-[10px]">{txn.sender?.slice(-10)}</span>
+      <span className="text-[var(--text-muted)]">→</span>
+      <span className="text-[var(--text-secondary)] shrink-0 font-mono text-[10px]">{txn.receiver?.slice(-10)}</span>
       <span className={`ml-auto inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold ${FLAG_LEVEL[level] || 'badge-teal'}`}>
         {txn.synthetic ? 'SYNTH' : level.toUpperCase()}
       </span>
@@ -55,11 +55,11 @@ function AlertCard({ alert }) {
           <span className={sevCls}>{alert.severity?.toUpperCase()}</span>
           {alert.synthetic && <span className="badge-emerald">SYNTH</span>}
         </div>
-        <span className="text-[10px] text-gray-500 font-mono">{fmtTS(alert.timestamp || alert.last_ts)}</span>
+        <span className="text-[10px] text-[var(--text-secondary)] font-mono">{fmtTS(alert.timestamp || alert.last_ts)}</span>
       </div>
-      <p className="text-xs text-gray-600">{alert.message}</p>
-      <div className="flex gap-4 text-[10px] text-gray-500">
-        <span>Account: <span className="font-mono text-gray-700">{alert.account_id?.slice(-12)}</span></span>
+      <p className="text-xs text-[var(--text-secondary)]">{alert.message}</p>
+      <div className="flex gap-4 text-[10px] text-[var(--text-secondary)]">
+        <span>Account: <span className="font-mono text-[var(--text-primary)]">{alert.account_id?.slice(-12)}</span></span>
         {alert.near_threshold_count != null && <span>Near-threshold: <span className="font-mono text-amber-700">{alert.near_threshold_count}</span></span>}
         {alert.fan_out_count != null && <span>Receivers: <span className="font-mono text-purple-700">{alert.fan_out_count}</span></span>}
         {alert.amount != null && <span>Amount: <span className="font-mono">{fmtUSD(alert.amount)}</span></span>}
@@ -159,13 +159,13 @@ export default function LiveStream() {
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <div>
           <p className="eyebrow">Live Transaction Stream</p>
-          <p className="text-sm text-gray-500 mt-1">Replay the IBM AML dataset chronologically — watch fraud detection fire in real-time</p>
+          <p className="text-sm text-[var(--text-secondary)] mt-1">Replay the IBM AML dataset chronologically — watch fraud detection fire in real-time</p>
         </div>
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1 bg-gray-50 rounded-xl p-1 border border-gray-200">
+          <div className="flex items-center gap-1 bg-[var(--bg-card-hover)] rounded-xl p-1 border border-[var(--border-card)]">
             {SPEED_PRESETS.map(p => (
               <button key={p.value} onClick={() => setSpeed(p.value)}
-                className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all ${speed === p.value ? 'bg-white text-gray-800 shadow-sm border border-gray-200' : 'text-gray-500 hover:text-gray-700'}`}>{p.label}</button>
+                className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all ${speed === p.value ? 'bg-[var(--bg-card)] text-[var(--text-primary)] shadow-sm border border-[var(--border-card)]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}>{p.label}</button>
             ))}
           </div>
           {!status?.running ? (
@@ -186,35 +186,35 @@ export default function LiveStream() {
       {status && (
         <div className="card space-y-3">
           <div className="flex items-center gap-3">
-            <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-              <div className={`h-full rounded-full transition-all duration-300 ${isRunning ? 'bg-orange-500 animate-pulse' : isPaused ? 'bg-amber-500' : 'bg-gray-300'}`} style={{ width: `${progress}%` }} />
+            <div className="flex-1 h-2 bg-[var(--border-card)] rounded-full overflow-hidden">
+              <div className={`h-full rounded-full transition-all duration-300 ${isRunning ? 'bg-orange-500 animate-pulse' : isPaused ? 'bg-amber-500' : 'bg-[var(--text-muted)]'}`} style={{ width: `${progress}%` }} />
             </div>
-            <span className="text-xs font-mono text-gray-500 shrink-0">{progress.toFixed(1)}%</span>
+            <span className="text-xs font-mono text-[var(--text-secondary)] shrink-0">{progress.toFixed(1)}%</span>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
-            <div className="bg-gray-50/80 rounded-xl px-3 py-2 border border-gray-200/60">
-              <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Status</p>
-              <p className={`text-sm font-bold ${isRunning ? 'text-emerald-600' : isPaused ? 'text-amber-600' : 'text-gray-500'}`}>{isRunning ? 'Streaming' : isPaused ? 'Paused' : 'Idle'}</p>
+            <div className="bg-[var(--bg-card-hover)]/80 rounded-xl px-3 py-2 border border-[var(--border-card)]/60">
+              <p className="text-[9px] font-bold text-[var(--text-muted)] uppercase tracking-widest">Status</p>
+              <p className={`text-sm font-bold ${isRunning ? 'text-emerald-600' : isPaused ? 'text-amber-600' : 'text-[var(--text-secondary)]'}`}>{isRunning ? 'Streaming' : isPaused ? 'Paused' : 'Idle'}</p>
             </div>
-            <div className="bg-gray-50/80 rounded-xl px-3 py-2 border border-gray-200/60">
-              <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Events</p>
-              <p className="text-sm font-bold font-mono text-orange-600">{transactions.length}<span className="text-gray-400 text-[10px]">/{status.total_rows?.toLocaleString()}</span></p>
+            <div className="bg-[var(--bg-card-hover)]/80 rounded-xl px-3 py-2 border border-[var(--border-card)]/60">
+              <p className="text-[9px] font-bold text-[var(--text-muted)] uppercase tracking-widest">Events</p>
+              <p className="text-sm font-bold font-mono text-orange-600">{transactions.length}<span className="text-[var(--text-muted)] text-[10px]">/{status.total_rows?.toLocaleString()}</span></p>
             </div>
-            <div className="bg-gray-50/80 rounded-xl px-3 py-2 border border-gray-200/60">
-              <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Flagged</p>
+            <div className="bg-[var(--bg-card-hover)]/80 rounded-xl px-3 py-2 border border-[var(--border-card)]/60">
+              <p className="text-[9px] font-bold text-[var(--text-muted)] uppercase tracking-widest">Flagged</p>
               <p className="text-sm font-bold font-mono text-red-600">{[...new Set(alerts.map(a => a.account_id))].length}</p>
             </div>
-            <div className="bg-gray-50/80 rounded-xl px-3 py-2 border border-gray-200/60">
-              <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Volume</p>
-              <p className="text-sm font-bold font-mono text-gray-700">{fmtUSD(transactions.reduce((s, t) => s + (t.amount || 0), 0))}</p>
+            <div className="bg-[var(--bg-card-hover)]/80 rounded-xl px-3 py-2 border border-[var(--border-card)]/60">
+              <p className="text-[9px] font-bold text-[var(--text-muted)] uppercase tracking-widest">Volume</p>
+              <p className="text-sm font-bold font-mono text-[var(--text-primary)]">{fmtUSD(transactions.reduce((s, t) => s + (t.amount || 0), 0))}</p>
             </div>
-            <div className="bg-gray-50/80 rounded-xl px-3 py-2 border border-gray-200/60">
-              <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Alerts</p>
-              <p className={`text-sm font-bold font-mono ${alerts.length > 0 ? 'text-red-600' : 'text-gray-500'}`}>{alerts.length}</p>
+            <div className="bg-[var(--bg-card-hover)]/80 rounded-xl px-3 py-2 border border-[var(--border-card)]/60">
+              <p className="text-[9px] font-bold text-[var(--text-muted)] uppercase tracking-widest">Alerts</p>
+              <p className={`text-sm font-bold font-mono ${alerts.length > 0 ? 'text-red-600' : 'text-[var(--text-secondary)]'}`}>{alerts.length}</p>
             </div>
-            <div className="bg-gray-50/80 rounded-xl px-3 py-2 border border-gray-200/60">
-              <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Latency</p>
-              <p className="text-sm font-bold font-mono text-gray-500">&lt;100ms SSE</p>
+            <div className="bg-[var(--bg-card-hover)]/80 rounded-xl px-3 py-2 border border-[var(--border-card)]/60">
+              <p className="text-[9px] font-bold text-[var(--text-muted)] uppercase tracking-widest">Latency</p>
+              <p className="text-sm font-bold font-mono text-[var(--text-secondary)]">&lt;100ms SSE</p>
             </div>
           </div>
         </div>
@@ -253,28 +253,28 @@ export default function LiveStream() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-1 space-y-2">
           <div className="flex items-center justify-between">
-            <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">Alerts {alerts.length > 0 && <span className="text-red-600 ml-1">({alerts.length})</span>}</h3>
-            {alerts.length > 0 && <button onClick={() => setAlerts([])} className="text-[10px] text-gray-400 hover:text-gray-600">Clear</button>}
+            <h3 className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-[0.2em]">Alerts {alerts.length > 0 && <span className="text-red-600 ml-1">({alerts.length})</span>}</h3>
+            {alerts.length > 0 && <button onClick={() => setAlerts([])} className="text-[10px] text-[var(--text-muted)] hover:text-[var(--text-secondary)]">Clear</button>}
           </div>
-          <div ref={alertListRef} className="border border-gray-200/80 rounded-2xl p-3 space-y-2 max-h-[400px] overflow-y-auto bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <div ref={alertListRef} className="border border-[var(--border-card)]/80 rounded-2xl p-3 space-y-2 max-h-[400px] overflow-y-auto bg-[var(--bg-card)] shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
             {alerts.length === 0 ? (
-              <div className="py-8 text-center space-y-1"><p className="text-gray-400 text-xs">No alerts yet</p><p className="text-gray-300 text-[10px]">Start the stream to see live detection</p></div>
+              <div className="py-8 text-center space-y-1"><p className="text-[var(--text-muted)] text-xs">No alerts yet</p><p className="text-[var(--text-muted)] text-[10px]">Start the stream to see live detection</p></div>
             ) : alerts.map((a, i) => <AlertCard key={i} alert={a} />)}
           </div>
         </div>
 
         <div className="lg:col-span-2 space-y-2">
           <div className="flex items-center justify-between">
-            <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">Transaction Feed {transactions.length > 0 && <span className="text-gray-500 ml-1">({transactions.length})</span>}</h3>
-            {transactions.length > 0 && <button onClick={() => setTransactions([])} className="text-[10px] text-gray-400 hover:text-gray-600">Clear</button>}
+            <h3 className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-[0.2em]">Transaction Feed {transactions.length > 0 && <span className="text-[var(--text-secondary)] ml-1">({transactions.length})</span>}</h3>
+            {transactions.length > 0 && <button onClick={() => setTransactions([])} className="text-[10px] text-[var(--text-muted)] hover:text-[var(--text-secondary)]">Clear</button>}
           </div>
-          <div ref={txnListRef} className="border border-gray-200/80 rounded-2xl overflow-hidden max-h-[400px] overflow-y-auto bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <div ref={txnListRef} className="border border-[var(--border-card)]/80 rounded-2xl overflow-hidden max-h-[400px] overflow-y-auto bg-[var(--bg-card)] shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
             {transactions.length === 0 ? (
-              <div className="py-14 text-center space-y-1"><p className="text-gray-400 text-xs">Waiting for stream…</p><p className="text-gray-300 text-[10px]">Transactions will appear here as they are inserted</p></div>
+              <div className="py-14 text-center space-y-1"><p className="text-[var(--text-muted)] text-xs">Waiting for stream…</p><p className="text-[var(--text-muted)] text-[10px]">Transactions will appear here as they are inserted</p></div>
             ) : (
               <div className="overflow-x-auto">
                 <div className="min-w-[500px]">
-                  <div className="flex items-center gap-3 px-3 py-2 bg-gray-50 border-b border-gray-200 text-[10px] text-gray-400 font-semibold uppercase tracking-wider">
+                  <div className="flex items-center gap-3 px-3 py-2 bg-[var(--bg-card-hover)] border-b border-[var(--border-card)] text-[10px] text-[var(--text-muted)] font-semibold uppercase tracking-wider">
                     <span className="w-28 shrink-0">Timestamp</span><span className="w-20 shrink-0">Amount</span><span className="w-20 shrink-0">Sender</span><span className="w-4" /><span className="w-20 shrink-0">Receiver</span><span className="ml-auto">Flag</span>
                   </div>
                   {transactions.map((txn, i) => <TxnRow key={txn.transaction_id || i} txn={txn} isNew={i >= prevTxnCount.current} />)}
@@ -287,9 +287,9 @@ export default function LiveStream() {
 
       {/* Info */}
       {!status?.running && (
-        <div className="bg-gray-50/80 border border-gray-200/60 rounded-2xl px-4 py-3 text-[10px] text-gray-400 space-y-1">
-          <p><span className="font-semibold text-gray-600">How it works:</span> The simulator reads the IBM AML CSV chronologically and inserts transactions into DuckDB at accelerated speed. After each batch, lightweight detection checks fire for structuring patterns and large transactions.</p>
-          <p><span className="font-semibold text-gray-600">Detection thresholds:</span> Structuring = 2+ near-threshold deposits ($9,500–$10,000) within 30 days · Large transaction = single amount $50,000+ · Smurfing = 3+ distinct receivers within 7 days</p>
+        <div className="bg-[var(--bg-card-hover)]/80 border border-[var(--border-card)]/60 rounded-2xl px-4 py-3 text-[10px] text-[var(--text-muted)] space-y-1">
+          <p><span className="font-semibold text-[var(--text-secondary)]">How it works:</span> The simulator reads the IBM AML CSV chronologically and inserts transactions into DuckDB at accelerated speed. After each batch, lightweight detection checks fire for structuring patterns and large transactions.</p>
+          <p><span className="font-semibold text-[var(--text-secondary)]">Detection thresholds:</span> Structuring = 2+ near-threshold deposits ($9,500–$10,000) within 30 days · Large transaction = single amount $50,000+ · Smurfing = 3+ distinct receivers within 7 days</p>
         </div>
       )}
     </div>

@@ -16,6 +16,7 @@
     --red-bg: #fef2f2;
     --red-border: #fecaca;
     --orange: #f97316;
+    --orange-rgb: 249, 115, 22;
     --orange-bg: #fff7ed;
     --orange-border: #fed7aa;
     --amber: #f59e0b;
@@ -34,6 +35,38 @@
     --indigo-border: #c7d2fe;
   }
 
+  .dark {
+    --bg-page: #000000;
+    --bg-card: #141414;
+    --bg-card-hover: #161616;
+    --border-card: #262626;
+    --text-primary: #f5f5f5;
+    --text-secondary: #a3a3a3;
+    --text-muted: #71717a;
+
+    --red: #f87171;
+    --red-bg: #ef4444;
+    --red-border: #ef4444;
+    --orange: #fb923c;
+    --orange-rgb: 251, 146, 60;
+    --orange-bg: #1c110a;
+    --orange-border: #7c2d12;
+    --amber: #fbbf24;
+    --amber-bg: #1c1408;
+    --amber-border: #78350f;
+    --emerald: #34d399;
+    --emerald-bg: #064e3b;
+    --emerald-border: #065f46;
+    --teal: #2dd4bf;
+    --teal-bg: #134e4a;
+    --teal-border: #115e59;
+    --accent: #fbbf24;
+    --accent-hover: #f5a623;
+    --indigo: #818cf8;
+    --indigo-bg: #312e81;
+    --indigo-border: #3730a3;
+  }
+
   body {
     font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
     background-color: var(--bg-page);
@@ -48,29 +81,42 @@
 
 @layer components {
   .card {
-    @apply bg-white rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.06)] border border-gray-200/80 p-6;
+    @apply rounded-2xl border p-6;
+    background-color: var(--bg-card);
+    border-color: var(--border-card);
   }
   .eyebrow {
-    @apply text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em];
+    @apply text-[10px] font-bold uppercase tracking-[0.2em];
+    color: var(--text-muted);
   }
   .badge-red {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold
-           bg-red-50 text-red-700 border border-red-200;
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold;
+    background-color: var(--red-bg);
+    color: #ffffff;
+    border-color: var(--red-border);
   }
   .badge-amber {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold
-           bg-amber-50 text-amber-700 border border-amber-200;
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold;
+    background-color: var(--amber-bg);
+    color: #ffffff;
+    border-color: var(--amber-border);
   }
   .badge-emerald {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold
-           bg-emerald-50 text-emerald-700 border border-emerald-200;
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold;
+    background-color: var(--emerald-bg);
+    color: #ffffff;
+    border-color: var(--emerald-border);
   }
   .badge-teal {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold
-           bg-teal-50 text-teal-700 border border-teal-200;
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold;
+    background-color: var(--teal-bg);
+    color: #ffffff;
+    border-color: var(--teal-border);
   }
   .kpi-card {
-    @apply bg-white rounded-2xl border border-gray-200/80 px-5 py-4 space-y-1 min-w-0 shadow-[0_1px_3px_rgba(0,0,0,0.04)];
+    @apply rounded-2xl border px-5 py-4 space-y-1 min-w-0;
+    background-color: var(--bg-card);
+    border-color: var(--border-card);
   }
   .kpi-icon {
     @apply w-8 h-8 rounded-xl flex items-center justify-center shrink-0;
@@ -79,7 +125,6 @@
 
 @layer utilities {
   .dot-grid {
-    background-image: radial-gradient(circle, #e5e7eb 0.5px, transparent 0.5px);
-    background-size: 20px 20px;
+    background-image: none;
   }
 }

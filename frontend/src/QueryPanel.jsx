@@ -58,12 +58,12 @@ export default function QueryPanel({ onSubmit, loading, queryHistory = [] }) {
       <div className="flex items-center justify-between">
         <div>
           <p className="eyebrow">Agentic Investigator</p>
-          <h2 className="text-xl font-bold text-gray-900 mt-1">Ask FinSherlock in plain English.</h2>
+          <h2 className="text-xl font-bold text-[var(--text-primary)] mt-1">Ask FinSherlock in plain English.</h2>
         </div>
         <button
           onClick={startAutopilot}
           disabled={loading || autopilot}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 active:bg-orange-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-[11px] font-bold transition-all disabled:cursor-not-allowed shadow-sm"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 active:bg-orange-700 disabled:bg-[var(--border-card)] disabled:text-[var(--text-muted)] text-white text-[11px] font-bold transition-all disabled:cursor-not-allowed shadow-sm"
         >
           {autopilot ? (
             <>
@@ -85,7 +85,7 @@ export default function QueryPanel({ onSubmit, loading, queryHistory = [] }) {
       <div className="flex gap-3">
         <div className="relative flex-1">
           <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-            <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+            <svg className="w-4 h-4 text-[var(--text-muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
               <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
           </div>
@@ -95,12 +95,12 @@ export default function QueryPanel({ onSubmit, loading, queryHistory = [] }) {
             onChange={e => setQuery(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && run()}
             placeholder="e.g. Find structuring patterns in the last 30 days across cash deposits under $10,000"
-            className="w-full bg-white border border-gray-300 rounded-xl pl-10 pr-5 py-3.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 transition-all font-mono shadow-sm"
+            className="w-full bg-[var(--bg-card)] border border-[var(--border-card)] rounded-xl pl-10 pr-5 py-3.5 text-sm text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 transition-all font-mono shadow-sm"
           />
           {query && (
             <button
               onClick={() => setQuery('')}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs"
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-secondary)] text-xs"
             >
               ✕
             </button>
@@ -109,7 +109,7 @@ export default function QueryPanel({ onSubmit, loading, queryHistory = [] }) {
         <button
           onClick={() => run()}
           disabled={!query.trim() || loading}
-          className="px-6 py-3.5 bg-orange-500 hover:bg-orange-600 active:bg-orange-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-sm font-semibold rounded-xl transition-all shadow-sm disabled:shadow-none"
+          className="px-6 py-3.5 bg-orange-500 hover:bg-orange-600 active:bg-orange-700 disabled:bg-[var(--border-card)] disabled:text-[var(--text-muted)] text-white text-sm font-semibold rounded-xl transition-all shadow-sm disabled:shadow-none"
         >
           {loading ? (
             <span className="flex items-center gap-2">
@@ -129,7 +129,7 @@ export default function QueryPanel({ onSubmit, loading, queryHistory = [] }) {
 
       {/* Quick filter chips + Query history */}
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[10px] font-bold text-gray-400 tracking-wider uppercase mr-1">Quick:</span>
+        <span className="text-[10px] font-bold text-[var(--text-muted)] tracking-wider uppercase mr-1">Quick:</span>
         {TYPOLOGIES.map(t => (
           <button
             key={t.key}
@@ -156,7 +156,7 @@ export default function QueryPanel({ onSubmit, loading, queryHistory = [] }) {
         {queryHistory.length > 0 && (
           <button
             onClick={() => setShowHistory(h => !h)}
-            className="px-3 py-1.5 rounded-lg border border-gray-200 bg-gray-50 text-gray-500 font-mono text-[10px] hover:text-gray-700 transition-all ml-auto"
+            className="px-3 py-1.5 rounded-lg border border-[var(--border-card)] bg-[var(--bg-card-hover)] text-[var(--text-secondary)] font-mono text-[10px] hover:text-[var(--text-primary)] transition-all ml-auto"
           >
             {showHistory ? '↑ History' : `↓ History (${queryHistory.length})`}
           </button>
@@ -165,13 +165,13 @@ export default function QueryPanel({ onSubmit, loading, queryHistory = [] }) {
 
       {/* History */}
       {showHistory && queryHistory.length > 0 && (
-        <div className="bg-white border border-gray-200/80 rounded-xl p-3 space-y-1 shadow-sm">
-          <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-2">Recent Queries</p>
+        <div className="bg-[var(--bg-card)] border border-[var(--border-card)]/80 rounded-xl p-3 space-y-1 shadow-sm">
+          <p className="text-[9px] font-bold text-[var(--text-muted)] uppercase tracking-wider mb-2">Recent Queries</p>
           {queryHistory.map((h, i) => (
             <button key={i} onClick={() => { run(h.query); setShowHistory(false) }} disabled={loading}
-              className="w-full text-left flex items-center justify-between gap-3 px-3 py-2 rounded-lg hover:bg-gray-50/80 transition-colors">
-              <span className="text-xs text-gray-600 font-mono truncate">{h.query}</span>
-              <span className="text-[10px] text-gray-400 shrink-0">{fmtAge(h.ts)}</span>
+              className="w-full text-left flex items-center justify-between gap-3 px-3 py-2 rounded-lg hover:bg-[var(--bg-card-hover)]/80 transition-colors">
+              <span className="text-xs text-[var(--text-secondary)] font-mono truncate">{h.query}</span>
+              <span className="text-[10px] text-[var(--text-muted)] shrink-0">{fmtAge(h.ts)}</span>
             </button>
           ))}
         </div>

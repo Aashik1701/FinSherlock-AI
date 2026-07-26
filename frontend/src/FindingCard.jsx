@@ -43,29 +43,29 @@ function StructuringDetail({ entry }) {
   if (!entry?.transactions?.length) return null
   const shown = entry.transactions.slice(0, 6)
   return (
-    <Section title={`Near-Threshold Deposits · ${entry.near_threshold_txn_count} transactions · ${fmtUSD(entry.total_amount_structured)} total`}>
-      <div className="border border-gray-200 rounded-xl overflow-hidden">
+      <Section title={`Near-Threshold Deposits · ${entry.near_threshold_txn_count} transactions · ${fmtUSD(entry.total_amount_structured)} total`}>
+      <div className="border border-[var(--border-card)] rounded-xl overflow-hidden">
         <table className="w-full text-xs">
           <thead>
-            <tr className="border-b border-gray-200 bg-gray-50">
-              <th className="text-left px-3 py-2 text-gray-400 font-semibold text-[10px]">Timestamp</th>
-              <th className="text-right px-3 py-2 text-gray-400 font-semibold text-[10px]">Amount</th>
-              <th className="text-right px-3 py-2 text-gray-400 font-semibold text-[10px]">Below Limit</th>
-              <th className="text-right px-3 py-2 text-gray-400 font-semibold text-[10px]">Txn ID</th>
+            <tr className="border-b border-[var(--border-card)] bg-[var(--bg-card-hover)]">
+              <th className="text-left px-3 py-2 text-[var(--text-muted)] font-semibold text-[10px]">Timestamp</th>
+              <th className="text-right px-3 py-2 text-[var(--text-muted)] font-semibold text-[10px]">Amount</th>
+              <th className="text-right px-3 py-2 text-[var(--text-muted)] font-semibold text-[10px]">Below Limit</th>
+              <th className="text-right px-3 py-2 text-[var(--text-muted)] font-semibold text-[10px]">Txn ID</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody className="divide-y divide-[var(--border-card)]">
             {shown.map((txn, i) => (
-              <tr key={i} className="hover:bg-gray-50/50 transition-colors">
-                <td className="px-3 py-2 font-mono text-gray-500">{fmtTS(txn.timestamp)}</td>
-                <td className="px-3 py-2 text-right font-mono font-semibold text-gray-800">{fmtUSD(txn.amount)}</td>
-                <td className="px-3 py-2 text-right font-mono text-red-600">{fmtUSD(txn.distance_from_threshold)} <span className="text-gray-400">({txn.pct_below_threshold?.toFixed(1)}%)</span></td>
-                <td className="px-3 py-2 text-right font-mono text-gray-400 text-[10px]">{String(txn.transaction_id).slice(-8)}</td>
+              <tr key={i} className="hover:bg-[var(--bg-card-hover)]/50 transition-colors">
+                <td className="px-3 py-2 font-mono text-[var(--text-secondary)]">{fmtTS(txn.timestamp)}</td>
+                <td className="px-3 py-2 text-right font-mono font-semibold text-[var(--text-primary)]">{fmtUSD(txn.amount)}</td>
+                <td className="px-3 py-2 text-right font-mono text-red-600">{fmtUSD(txn.distance_from_threshold)} <span className="text-[var(--text-muted)]">({txn.pct_below_threshold?.toFixed(1)}%)</span></td>
+                <td className="px-3 py-2 text-right font-mono text-[var(--text-muted)] text-[10px]">{String(txn.transaction_id).slice(-8)}</td>
               </tr>
             ))}
           </tbody>
         </table>
-        {entry.transactions.length > 6 && <p className="px-3 py-2 text-[10px] text-gray-400 border-t border-gray-100">+ {entry.transactions.length - 6} more</p>}
+        {entry.transactions.length > 6 && <p className="px-3 py-2 text-[10px] text-[var(--text-muted)] border-t border-[var(--border-card)]">+ {entry.transactions.length - 6} more</p>}
       </div>
     </Section>
   )
@@ -78,7 +78,7 @@ function SmurfingDetail({ entry }) {
       <div className="space-y-3">
         {entry.counterparties_sent_to?.length > 0 && (
           <div className="space-y-1.5">
-            <p className="text-[10px] text-gray-500">Sent to <span className="text-violet-600 font-semibold">{entry.counterparties_sent_to.length}</span> accounts · {fmtUSD(entry.total_sent)} total</p>
+            <p className="text-[10px] text-[var(--text-secondary)]">Sent to <span className="text-violet-600 font-semibold">{entry.counterparties_sent_to.length}</span> accounts · {fmtUSD(entry.total_sent)} total</p>
             <div className="flex flex-wrap gap-1.5">
               {entry.counterparties_sent_to.map(cp => (
                 <span key={cp} className="px-2 py-0.5 bg-violet-50 border border-violet-200 rounded-md text-[10px] text-violet-700 font-mono">{cp}</span>
@@ -88,7 +88,7 @@ function SmurfingDetail({ entry }) {
         )}
         {entry.counterparties_received_from?.length > 0 && (
           <div className="space-y-1.5">
-            <p className="text-[10px] text-gray-500">Received from <span className="text-purple-600 font-semibold">{entry.counterparties_received_from.length}</span> accounts · {fmtUSD(entry.total_received)} total</p>
+            <p className="text-[10px] text-[var(--text-secondary)]">Received from <span className="text-purple-600 font-semibold">{entry.counterparties_received_from.length}</span> accounts · {fmtUSD(entry.total_received)} total</p>
             <div className="flex flex-wrap gap-1.5">
               {entry.counterparties_received_from.map(cp => (
                 <span key={cp} className="px-2 py-0.5 bg-purple-50 border border-purple-200 rounded-md text-[10px] text-purple-700 font-mono">{cp}</span>
@@ -106,20 +106,20 @@ function LayeringDetail({ layerPath }) {
   const { path, transaction_ids, hop_count, total_amount, time_span_hours } = layerPath
   return (
     <Section title={`Layering Chain · ${hop_count} hops · ${fmtUSD(total_amount)} · ${time_span_hours?.toFixed(1)}h span`}>
-      <div className="border border-gray-200 rounded-xl p-4 bg-gray-50/50">
+      <div className="border border-[var(--border-card)] rounded-xl p-4 bg-[var(--bg-card-hover)]/50">
         <div className="flex flex-wrap items-center gap-y-2">
           {path.map((node, i) => (
             <span key={i} className="inline-flex items-center gap-1">
               <span className={`px-2.5 py-1.5 rounded-lg border font-mono text-[10px] font-semibold ${
                 i === 0 ? 'bg-amber-50 border-amber-200 text-amber-700' :
                 i === path.length - 1 ? 'bg-emerald-50 border-emerald-200 text-emerald-700' :
-                'bg-white border-gray-200 text-gray-600'
+                'bg-[var(--bg-card)] border-[var(--border-card)] text-[var(--text-secondary)]'
               }`}>{node}</span>
-              {i < path.length - 1 && <span className="text-gray-400 text-xs px-1">→</span>}
+              {i < path.length - 1 && <span className="text-[var(--text-muted)] text-xs px-1">→</span>}
             </span>
           ))}
         </div>
-        <div className="mt-3 flex gap-6 text-[10px] text-gray-400 border-t border-gray-200 pt-2.5">
+        <div className="mt-3 flex gap-6 text-[10px] text-[var(--text-muted)] border-t border-[var(--border-card)] pt-2.5">
           <span>Origin = {path[0]}</span>
           <span>Destination = {path[path.length - 1]}</span>
           <span>{hop_count} intermediar{hop_count === 1 ? 'y' : 'ies'}</span>
@@ -162,18 +162,18 @@ function SHAPPanel({ accountId, windowDays }) {
 
   return (
     <div className="space-y-3">
-      <p className="text-xs text-gray-600 leading-relaxed italic border-l-2 border-indigo-300 pl-3">{data.narrative}</p>
-      <div className="border border-gray-200 rounded-xl overflow-hidden">
-        <div className="px-3 py-2 border-b border-gray-200 flex items-center justify-between bg-gray-50">
+      <p className="text-xs text-[var(--text-secondary)] leading-relaxed italic border-l-2 border-indigo-300 pl-3">{data.narrative}</p>
+      <div className="border border-[var(--border-card)] rounded-xl overflow-hidden">
+        <div className="px-3 py-2 border-b border-[var(--border-card)] flex items-center justify-between bg-[var(--bg-card-hover)]">
           <span className="eyebrow">SHAP Feature Attribution · txn {String(data.transaction_id).slice(-8)}</span>
-          <span className="text-[9px] text-gray-400 font-mono">p={data.ml_probability.toFixed(3)} · base={data.base_probability.toFixed(3)}</span>
+          <span className="text-[9px] text-[var(--text-muted)] font-mono">p={data.ml_probability.toFixed(3)} · base={data.base_probability.toFixed(3)}</span>
         </div>
-        <div className="divide-y divide-gray-100">
+        <div className="divide-y divide-[var(--border-card)]">
           {data.shap_values.map((s, i) => (
             <div key={i} className="grid grid-cols-[1fr_6rem_3.5rem] items-center gap-3 px-3 py-1.5">
-              <span className="text-[10px] text-gray-500 truncate" title={s.label}>{s.label}</span>
+              <span className="text-[10px] text-[var(--text-secondary)] truncate" title={s.label}>{s.label}</span>
               <div className="relative flex items-center h-3 w-full">
-                <div className="absolute left-1/2 top-0 bottom-0 w-px bg-gray-200" />
+                <div className="absolute left-1/2 top-0 bottom-0 w-px bg-[var(--border-card)]" />
                 {s.shap_value >= 0 ? (
                   <div className="absolute left-1/2 h-2 rounded-r bg-red-400" style={{ width: `${Math.abs(s.shap_value) / maxAbs * 50}%` }} />
                 ) : (
@@ -186,7 +186,7 @@ function SHAPPanel({ accountId, windowDays }) {
             </div>
           ))}
         </div>
-        <div className="px-3 py-1.5 border-t border-gray-200 flex gap-6 text-[9px] text-gray-400 bg-gray-50">
+        <div className="px-3 py-1.5 border-t border-[var(--border-card)] flex gap-6 text-[9px] text-[var(--text-muted)] bg-[var(--bg-card-hover)]">
           <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-2 rounded-r bg-red-400" /> increases risk</span>
           <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-2 rounded-l bg-emerald-400" /> decreases risk</span>
         </div>
@@ -231,11 +231,11 @@ export default function FindingCard({ exp, structuringData, smurfingData, layeri
   const hasGraph = !!(structEntry || smurfEntry || layerPath)
 
   return (
-    <article className={`bg-white border border-gray-200/80 border-l-4 ${risk.border} rounded-2xl overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.04)]`}>
+    <article className={`bg-[var(--bg-card)] border border-[var(--border-card)]/80 border-l-4 ${risk.border} rounded-2xl overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.04)]`}>
       {/* Card header */}
-      <header className="px-5 pt-4 pb-3 border-b border-gray-100 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+      <header className="px-5 pt-4 pb-3 border-b border-[var(--border-card)] flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
         <div className="flex items-center gap-3 flex-wrap min-w-0">
-          <span className="font-mono font-bold text-gray-900 text-base break-all">{exp.account_id}</span>
+          <span className="font-mono font-bold text-[var(--text-primary)] text-base break-all">{exp.account_id}</span>
           <span className={risk.badge}>{exp.risk_level}</span>
           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wider ${escCls}`}>
             {exp.escalation}
@@ -251,11 +251,11 @@ export default function FindingCard({ exp, structuringData, smurfingData, layeri
           {feedbackState !== 'tp' && feedbackState !== 'fp' ? (
             <div className="flex items-center gap-1.5">
               <button onClick={() => handleFeedback(true)} disabled={feedbackState === 'submitting'}
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-gray-200 bg-gray-50 hover:bg-gray-100 text-[10px] font-bold text-gray-700 transition-all disabled:opacity-40">
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-[var(--border-card)] bg-[var(--bg-card-hover)] hover:bg-[var(--border-card)] text-[10px] font-bold text-[var(--text-primary)] transition-all disabled:opacity-40">
                 ✓ Confirm TP
               </button>
               <button onClick={() => handleFeedback(false)} disabled={feedbackState === 'submitting'}
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-gray-200 bg-gray-50 hover:bg-gray-100 text-[10px] font-bold text-gray-700 transition-all disabled:opacity-40">
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-[var(--border-card)] bg-[var(--bg-card-hover)] hover:bg-[var(--border-card)] text-[10px] font-bold text-[var(--text-primary)] transition-all disabled:opacity-40">
                 ✕ Dismiss FP
               </button>
             </div>
@@ -266,7 +266,7 @@ export default function FindingCard({ exp, structuringData, smurfingData, layeri
           )}
           {error && <span className="text-[10px] text-red-600">{error}</span>}
 
-          <button onClick={handleExportSAR} className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-gray-200 bg-gray-50 hover:bg-gray-100 text-[10px] font-semibold text-gray-600 hover:text-gray-800 transition-all">
+          <button onClick={handleExportSAR} className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-[var(--border-card)] bg-[var(--bg-card-hover)] hover:bg-[var(--border-card)] text-[10px] font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all">
             <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
             </svg>
@@ -283,8 +283,8 @@ export default function FindingCard({ exp, structuringData, smurfingData, layeri
             <RiskGauge score={exp.risk_score ?? 0} riskLevel={exp.risk_level} uid={exp.account_id} />
           </div>
           <div className="flex-1 space-y-3 min-w-0">
-            {exp.instruction && <p className="text-xs text-gray-500 italic leading-relaxed border-l-2 border-gray-200 pl-3">{exp.instruction}</p>}
-            <p className="text-sm text-gray-800 leading-relaxed">{exp.explanation}</p>
+            {exp.instruction && <p className="text-xs text-[var(--text-secondary)] italic leading-relaxed border-l-2 border-[var(--border-card)] pl-3">{exp.instruction}</p>}
+            <p className="text-sm text-[var(--text-primary)] leading-relaxed">{exp.explanation}</p>
 
             {/* Counterfactual */}
             {exp.counterfactual && (
@@ -304,9 +304,9 @@ export default function FindingCard({ exp, structuringData, smurfingData, layeri
           <Section title="Evidence Cited">
             <div className="flex flex-wrap gap-2">
               {exp.evidence_cited.map((e, i) => (
-                <span key={i} className="inline-flex items-start gap-1.5 px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg">
+                <span key={i} className="inline-flex items-start gap-1.5 px-3 py-1.5 bg-[var(--bg-card-hover)] border border-[var(--border-card)] rounded-lg">
                   <span className="text-indigo-400 text-[10px] mt-px shrink-0">◆</span>
-                  <span className="text-xs text-gray-600 font-mono leading-snug">{e}</span>
+                  <span className="text-xs text-[var(--text-secondary)] font-mono leading-snug">{e}</span>
                 </span>
               ))}
             </div>
@@ -320,7 +320,7 @@ export default function FindingCard({ exp, structuringData, smurfingData, layeri
 
         {/* Detection details */}
         {(structEntry || smurfEntry || layerPath) && (
-          <div className="border border-gray-200 bg-gray-50/50 rounded-xl p-4 space-y-5">
+          <div className="border border-[var(--border-card)] bg-[var(--bg-card-hover)]/50 rounded-xl p-4 space-y-5">
             {structEntry && <StructuringDetail entry={structEntry} />}
             {smurfEntry  && <SmurfingDetail entry={smurfEntry} />}
             {layerPath   && <LayeringDetail layerPath={layerPath} />}

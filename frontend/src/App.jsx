@@ -10,8 +10,31 @@ import ExecutiveSummary from './ExecutiveSummary'
 import RingView        from './RingView'
 import ThreatRadar     from './ThreatRadar'
 import VelocitySurgeTable from './VelocitySurgeTable'
+import { useTheme } from './ThemeContext'
+import CopilotWidget  from './CopilotWidget'
 
 const API_BASE = 'http://localhost:8000'
+
+function ThemeToggle() {
+  const { isDark, toggleTheme } = useTheme()
+  return (
+    <button
+      onClick={toggleTheme}
+      className="p-2 rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition-colors"
+      aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+    >
+      {isDark ? (
+        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+        </svg>
+      ) : (
+        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+        </svg>
+      )}
+    </button>
+  )
+}
 
 function LiveClock() {
   const [t, setT] = useState(new Date())
@@ -173,11 +196,11 @@ export default function App() {
     { key: 'stream',      label: 'Live Stream' },
   ]
 
-  return (
-    <div className="min-h-screen bg-[#f8f9fb] dot-grid flex flex-col">
+return (
+    <div className="min-h-screen bg-[var(--bg-page)] flex flex-col">
 
       {/* ─── Header ───────────────────────────────────────────── */}
-      <header className="sticky top-0 z-20 bg-white/95 backdrop-blur-md border-b border-gray-200/80 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+      <header className="sticky top-0 z-20 bg-[var(--bg-card)]/95 backdrop-blur-md border-b border-[var(--border-card)]/80 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-14 sm:h-16">
 
@@ -189,12 +212,10 @@ export default function App() {
               </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <h1 className="text-sm font-bold text-gray-900 tracking-tight whitespace-nowrap">FinSherlockAI</h1>
-                  <span className="hidden sm:inline px-2 py-0.5 rounded-md text-[9px] font-bold bg-orange-50 text-orange-600 border border-orange-200 whitespace-nowrap uppercase tracking-wider">
-                    Socgen Hackathon
-                  </span>
+                  <h1 className="text-sm font-bold text-[var(--text-primary)] tracking-tight whitespace-nowrap">FinSherlockAI</h1>
+                  
                 </div>
-                <p className="hidden sm:block text-[10px] text-gray-400 mt-0.5 truncate">
+                <p className="hidden sm:block text-[10px] text-[var(--text-muted)] mt-0.5 truncate">
                   Autonomous Agentic AML Investigation
                 </p>
               </div>
@@ -203,12 +224,13 @@ export default function App() {
             {/* Right side */}
             <div className="flex items-center gap-3 shrink-0">
               <HealthDot />
-              <div className="w-px h-4 bg-gray-200" />
+              <div className="w-px h-4 bg-[var(--border-card)]" />
               <LiveClock />
-              <div className="w-px h-4 bg-gray-200" />
+              <div className="w-px h-4 bg-[var(--border-card)]" />
+              <ThemeToggle />
               <a
                 href="#"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 text-[10px] font-semibold text-gray-600 hover:text-gray-800 transition-all"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border-card)] bg-[var(--bg-card-hover)] hover:bg-[var(--border-card)]/50 text-[10px] font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all"
               >
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
@@ -226,8 +248,8 @@ export default function App() {
                 onClick={() => setActiveTab(key)}
                 className={`px-4 py-2.5 text-[11px] font-semibold whitespace-nowrap border-b-2 transition-all ${
                   activeTab === key
-                    ? 'border-orange-500 text-gray-900'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    ? 'border-orange-500 text-[var(--text-primary)]'
+                    : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:border-[var(--border-card)]'
                 }`}
               >
                 {label}
@@ -250,7 +272,7 @@ export default function App() {
               <div className="card space-y-4">
                 <div className="flex items-center gap-3">
                   <span className="w-4 h-4 border-2 border-orange-500 border-t-transparent rounded-full animate-spin shrink-0" />
-                  <span className="text-sm text-gray-700 font-medium">Running agentic investigation chain…</span>
+                  <span className="text-sm text-[var(--text-secondary)] font-medium">Running agentic investigation chain…</span>
                 </div>
                 <div className="space-y-2">
                   {[
@@ -259,7 +281,7 @@ export default function App() {
                     'Applying detection algorithms…',
                     'Classifying risk and generating explanations…',
                   ].map((step, i) => (
-                    <div key={i} className="flex items-center gap-2.5 text-xs text-gray-500">
+                    <div key={i} className="flex items-center gap-2.5 text-xs text-[var(--text-muted)]">
                       <span className="w-1.5 h-1.5 rounded-full bg-orange-400 animate-pulse shrink-0" style={{ animationDelay: `${i * 300}ms` }} />
                       {step}
                     </div>
@@ -270,11 +292,11 @@ export default function App() {
 
             {/* Error */}
             {error && (
-              <div className="bg-red-50 border border-red-200 rounded-2xl p-5 flex gap-3">
-                <span className="text-red-500 text-base shrink-0 mt-0.5 font-bold">!</span>
+              <div className="bg-[var(--red-bg)] border border-[var(--red-border)] rounded-2xl p-5 flex gap-3">
+                <span className="text-[var(--red)] text-base shrink-0 mt-0.5 font-bold">!</span>
                 <div className="space-y-1">
-                  <p className="text-sm font-semibold text-red-800">Investigation Failed</p>
-                  <p className="text-xs text-red-600 break-words">{error}</p>
+                  <p className="text-sm font-semibold text-[var(--red)]">Investigation Failed</p>
+                  <p className="text-xs text-[var(--red)] break-words">{error}</p>
                 </div>
               </div>
             )}
@@ -301,8 +323,8 @@ export default function App() {
                 </div>
 
                 {/* Threat Radar + Velocity Surge Table — side by side */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  <div className="lg:col-span-2 card">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="card">
                     <ThreatRadar version={summaryVersion} />
                   </div>
                   <div className="card">
@@ -310,18 +332,18 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Temp Heatmap + Mule Rings — side by side */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {eda && (
-                    <div className="card">
-                      <HeatmapView edaData={eda} />
-                    </div>
-                  )}
-                  <RingView
-                    muleRingData={muleRingData}
-                    velocityData={velocityData}
-                  />
-                </div>
+                {/* 24-Hour Transaction Density — full width */}
+                {eda && (
+                  <div className="card">
+                    <HeatmapView edaData={eda} />
+                  </div>
+                )}
+
+                {/* Mule Rings */}
+                <RingView
+                  muleRingData={muleRingData}
+                  velocityData={velocityData}
+                />
 
                 {/* Evidence-Grounded Findings */}
                 {explanations.length > 0 && (
@@ -329,11 +351,11 @@ export default function App() {
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="eyebrow">Evidence-Grounded Findings</p>
-                        <p className="text-sm text-gray-600 mt-1">
+                        <p className="text-sm text-[var(--text-secondary)] mt-1">
                           Results for: <span className="font-semibold text-orange-600 italic">"{result?.plan?.query ?? 'investigation'}"</span>
                         </p>
                       </div>
-                      <span className="text-[10px] text-gray-400 font-mono">
+                      <span className="text-[10px] text-[var(--text-muted)] font-mono">
                         {explanations.length} finding{explanations.length !== 1 ? 's' : ''} · sorted by risk
                       </span>
                     </div>
@@ -360,16 +382,18 @@ export default function App() {
       </main>
 
       {/* ─── Footer ───────────────────────────────────────────── */}
-      <footer className="border-t border-gray-200/80 bg-white/80 mt-auto">
+      <footer className="border-t border-[var(--border-card)]/80 bg-[var(--bg-card)]/80 mt-auto">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-col sm:flex-row items-center sm:justify-between gap-1">
-          <p className="text-[10px] text-gray-400 font-mono text-center sm:text-left">
+          <p className="text-[10px] text-[var(--text-muted)] font-mono text-center sm:text-left">
             deterministic detection · evidence-grounded explanations · LLM never decides risk
           </p>
-          <p className="text-[10px] text-gray-400 text-center sm:text-right">
+          <p className="text-[10px] text-[var(--text-muted)] text-center sm:text-right">
             IBM HI-Small AML Dataset · FinSherlock AI v1.0
           </p>
         </div>
       </footer>
+
+      <CopilotWidget />
     </div>
   )
 }

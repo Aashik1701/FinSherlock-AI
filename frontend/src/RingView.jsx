@@ -186,21 +186,21 @@ function RingCard({ ring, index }) {
   }, [])
 
   return (
-    <article className="bg-white border border-gray-200/80 rounded-2xl overflow-hidden shadow-sm">
+    <article className="bg-[var(--bg-card)] border border-[var(--border-card)]/80 rounded-2xl overflow-hidden shadow-sm">
       {/* Header */}
-      <header className="px-5 pt-4 pb-3 border-b border-gray-100 flex items-center justify-between">
+      <header className="px-5 pt-4 pb-3 border-b border-[var(--border-card)] flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <span className="text-xs font-bold font-mono text-gray-400">RING-{String(index + 1).padStart(2, '0')}</span>
+          <span className="text-xs font-bold font-mono text-[var(--text-muted)]">RING-{String(index + 1).padStart(2, '0')}</span>
           <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${riskCls}`}>{ring.risk_level}</span>
-          <span className="text-[10px] text-gray-400 font-mono">
-            score <span className="font-bold text-gray-600">{ring.suspicion_score.toFixed(0)}</span>/100
+          <span className="text-[10px] text-[var(--text-muted)] font-mono">
+            score <span className="font-bold text-[var(--text-primary)]">{ring.suspicion_score.toFixed(0)}</span>/100
           </span>
         </div>
         <div className="flex items-center gap-2">
           <span className={`text-[10px] font-semibold tracking-wider px-2 py-0.5 rounded-md border ${escBg} ${escColor}`}>{ring.escalation}</span>
           <button
             onClick={() => setExpanded(e => !e)}
-            className="px-2.5 py-1 rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 text-[10px] text-gray-500 hover:text-gray-700 transition-all font-medium"
+            className="px-2.5 py-1 rounded-lg border border-[var(--border-card)] bg-[var(--bg-card-hover)] hover:bg-[var(--border-card)] text-[10px] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all font-medium"
           >
             {expanded ? 'Collapse' : 'Expand'}
           </button>
@@ -210,27 +210,27 @@ function RingCard({ ring, index }) {
       <div className="px-5 py-4 space-y-4">
         {/* Stats row */}
         <div className="grid grid-cols-4 gap-3">
-          <div className="bg-gray-50/60 rounded-xl px-3 py-2 space-y-0.5">
-            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Members</p>
-            <p className="text-lg font-bold font-mono text-gray-800">{ring.member_count}</p>
+          <div className="bg-[var(--bg-card-hover)]/60 rounded-xl px-3 py-2 space-y-0.5">
+            <p className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider">Members</p>
+            <p className="text-lg font-bold font-mono text-[var(--text-primary)]">{ring.member_count}</p>
           </div>
-          <div className="bg-gray-50/60 rounded-xl px-3 py-2 space-y-0.5">
-            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Volume</p>
-            <p className="text-lg font-bold font-mono text-gray-800">{fmtUSD(ring.internal_volume_usd)}</p>
+          <div className="bg-[var(--bg-card-hover)]/60 rounded-xl px-3 py-2 space-y-0.5">
+            <p className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider">Volume</p>
+            <p className="text-lg font-bold font-mono text-[var(--text-primary)]">{fmtUSD(ring.internal_volume_usd)}</p>
           </div>
-          <div className="bg-gray-50/60 rounded-xl px-3 py-2 space-y-0.5">
-            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Circulation</p>
-            <p className="text-lg font-bold font-mono text-gray-800">{(ring.internal_ratio * 100).toFixed(0)}%</p>
+          <div className="bg-[var(--bg-card-hover)]/60 rounded-xl px-3 py-2 space-y-0.5">
+            <p className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider">Circulation</p>
+            <p className="text-lg font-bold font-mono text-[var(--text-primary)]">{(ring.internal_ratio * 100).toFixed(0)}%</p>
           </div>
-          <div className="bg-gray-50/60 rounded-xl px-3 py-2 space-y-0.5">
-            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Density</p>
-            <p className="text-lg font-bold font-mono text-gray-800">{(ring.graph_density * 100).toFixed(0)}%</p>
+          <div className="bg-[var(--bg-card-hover)]/60 rounded-xl px-3 py-2 space-y-0.5">
+            <p className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider">Density</p>
+            <p className="text-lg font-bold font-mono text-[var(--text-primary)]">{(ring.graph_density * 100).toFixed(0)}%</p>
           </div>
         </div>
 
         {/* Network graph + member list */}
         <div className="flex flex-col lg:flex-row gap-4">
-          <div className="shrink-0 w-full lg:w-[360px] bg-gray-50/40 rounded-xl border border-gray-100 p-2">
+          <div className="shrink-0 w-full lg:w-[360px] bg-[var(--bg-card-hover)]/40 rounded-xl border border-[var(--border-card)] p-2">
             <NetworkGraph
               members={members}
               edges={edges}
@@ -240,7 +240,7 @@ function RingCard({ ring, index }) {
               selected={selectedNode}
             />
             <div className="flex items-center justify-between px-2 pt-1">
-              <p className="text-[9px] text-gray-400 font-mono">{members.length} nodes · {edges.length} edges</p>
+              <p className="text-[9px] text-[var(--text-muted)] font-mono">{members.length} nodes · {edges.length} edges</p>
               {hoveredNode !== null && (
                 <p className="text-[9px] font-semibold text-indigo-600 font-mono">{members[hoveredNode]}</p>
               )}
@@ -248,7 +248,7 @@ function RingCard({ ring, index }) {
           </div>
 
           <div className="flex-1 space-y-2">
-            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Members</p>
+            <p className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider">Members</p>
             <div className="flex flex-wrap gap-1.5">
               {members.map((acc, i) => (
                 <span
@@ -260,8 +260,8 @@ function RingCard({ ring, index }) {
                     selectedNode === i
                       ? 'border-indigo-300 bg-indigo-50 text-indigo-700'
                       : hoveredNode === i
-                      ? 'border-gray-400 bg-gray-100 text-gray-700'
-                      : 'border-gray-200 bg-gray-50 text-gray-500 hover:border-gray-300 hover:bg-gray-100'
+                      ? 'border-[var(--text-secondary)] bg-[var(--border-card)] text-[var(--text-primary)]'
+                      : 'border-[var(--border-card)] bg-[var(--bg-card-hover)] text-[var(--text-secondary)] hover:border-[var(--text-muted)] hover:bg-[var(--border-card)]'
                   }`}
                 >
                   {acc}
@@ -269,7 +269,7 @@ function RingCard({ ring, index }) {
               ))}
             </div>
             {ring.avg_ml_risk > 0 && (
-              <p className="text-[10px] text-gray-400 mt-1">
+              <p className="text-[10px] text-[var(--text-muted)] mt-1">
                 Mean ML risk: <span className="font-mono font-semibold text-amber-600">{(ring.avg_ml_risk * 100).toFixed(1)}%</span>
               </p>
             )}
@@ -279,22 +279,22 @@ function RingCard({ ring, index }) {
         {/* Expanded transaction table */}
         {expanded && sampleTxns.length > 0 && (
           <div className="space-y-2">
-            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Sample Transactions</p>
-            <div className="border border-gray-200 rounded-xl overflow-hidden">
+            <p className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wider">Sample Transactions</p>
+            <div className="border border-[var(--border-card)] rounded-xl overflow-hidden">
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="border-b border-gray-200 bg-gray-50/80">
-                    <th className="text-left px-3 py-2 text-[10px] font-semibold text-gray-400">Sender</th>
-                    <th className="text-left px-3 py-2 text-[10px] font-semibold text-gray-400">Receiver</th>
-                    <th className="text-right px-3 py-2 text-[10px] font-semibold text-gray-400">Amount</th>
+                  <tr className="border-b border-[var(--border-card)] bg-[var(--bg-card-hover)]/80">
+                    <th className="text-left px-3 py-2 text-[10px] font-semibold text-[var(--text-muted)]">Sender</th>
+                    <th className="text-left px-3 py-2 text-[10px] font-semibold text-[var(--text-muted)]">Receiver</th>
+                    <th className="text-right px-3 py-2 text-[10px] font-semibold text-[var(--text-muted)]">Amount</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
+                <tbody className="divide-y divide-[var(--border-card)]">
                   {sampleTxns.map((t, i) => (
-                    <tr key={i} className="hover:bg-gray-50/50 transition-colors">
-                      <td className="px-3 py-1.5 font-mono text-[10px] text-gray-700">{t.sender}</td>
-                      <td className="px-3 py-1.5 font-mono text-[10px] text-gray-700">{t.receiver}</td>
-                      <td className="px-3 py-1.5 text-right font-mono text-[10px] font-semibold text-gray-600">{fmtUSD(t.amount)}</td>
+                    <tr key={i} className="hover:bg-[var(--bg-card-hover)]/50 transition-colors">
+                      <td className="px-3 py-1.5 font-mono text-[10px] text-[var(--text-primary)]">{t.sender}</td>
+                      <td className="px-3 py-1.5 font-mono text-[10px] text-[var(--text-primary)]">{t.receiver}</td>
+                      <td className="px-3 py-1.5 text-right font-mono text-[10px] font-semibold text-[var(--text-secondary)]">{fmtUSD(t.amount)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -326,11 +326,11 @@ export default function RingView({ muleRingData }) {
       <div className="flex items-center justify-between">
         <div>
           <p className="eyebrow">Money Mule Rings</p>
-          <p className="text-sm font-semibold text-gray-900 mt-1">
+          <p className="text-sm font-semibold text-[var(--text-primary)] mt-1">
             Louvain Community Detection · {rings.length} ring{rings.length !== 1 ? 's' : ''} found
           </p>
         </div>
-        <span className="text-[10px] text-gray-400 font-mono">
+        <span className="text-[10px] text-[var(--text-muted)] font-mono">
           Ø density {(rings.reduce((s, r) => s + r.graph_density, 0) / rings.length * 100).toFixed(1)}%
         </span>
       </div>
