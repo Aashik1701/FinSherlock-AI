@@ -617,4 +617,5 @@ cd backend
 
 ## License
 
-This project was built for educational and hackathon purposes. The IBM AML dataset is used under the [Community Data License Agreement — Permissive, Version 2.0](https://cdla.dev/permissive-2-0/).
+This project was built for educational and hackathon purposes. 
+The IBM AML dataset is used under the [Community Data License Agreement — Permissive, Version 2.0](https://cdla.dev/permissive-2-0/).
