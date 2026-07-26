@@ -5,6 +5,9 @@ import FindingCard   from './FindingCard'
 import MetricsPanel  from './MetricsPanel'
 import HeatmapView   from './HeatmapView'
 import ErrorBoundary from './ErrorBoundary'
+import Watchlist     from './Watchlist'
+import Cases         from './Cases'
+import LiveStream    from './LiveStream'
 
 const API_BASE = 'http://localhost:8000'
 
@@ -236,6 +239,7 @@ function LoadingState() {
 // ─── Root ───────────────────────────────────────────────────────────────────
 
 export default function App() {
+  const [activeTab,  setActiveTab]  = useState('investigate')
   const [loading,    setLoading]    = useState(false)
   const [result,     setResult]     = useState(null)
   const [error,      setError]      = useState(null)
@@ -355,6 +359,50 @@ export default function App() {
             </div>
           </div>
 
+          {/* Tab navigation */}
+          <nav className="flex items-center gap-1 bg-slate-950/60 rounded-lg p-0.5 border border-slate-800/50">
+            <button
+              onClick={() => setActiveTab('investigate')}
+              className={`px-3 py-1.5 rounded-md text-[11px] font-semibold transition-all ${
+                activeTab === 'investigate'
+                  ? 'bg-slate-800 text-slate-100 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-400'
+              }`}
+            >
+              Investigate
+            </button>
+            <button
+              onClick={() => setActiveTab('watchlist')}
+              className={`px-3 py-1.5 rounded-md text-[11px] font-semibold transition-all ${
+                activeTab === 'watchlist'
+                  ? 'bg-slate-800 text-slate-100 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-400'
+              }`}
+            >
+              Watchlist
+            </button>
+            <button
+              onClick={() => setActiveTab('cases')}
+              className={`px-3 py-1.5 rounded-md text-[11px] font-semibold transition-all ${
+                activeTab === 'cases'
+                  ? 'bg-slate-800 text-slate-100 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-400'
+              }`}
+            >
+              Cases
+            </button>
+            <button
+              onClick={() => setActiveTab('stream')}
+              className={`px-3 py-1.5 rounded-md text-[11px] font-semibold transition-all ${
+                activeTab === 'stream'
+                  ? 'bg-slate-800 text-slate-100 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-400'
+              }`}
+            >
+              Live Stream
+            </button>
+          </nav>
+
           <div className="flex items-center gap-5 shrink-0">
             {result && (
               <div className="hidden sm:flex items-center gap-4 text-[10px] text-slate-500 font-mono">
@@ -377,20 +425,57 @@ export default function App() {
       {/* ── Main content ───────────────────────────────────────────────────── */}
       <main className="flex-1 max-w-5xl mx-auto w-full px-6 py-10 space-y-10">
 
-        <QueryPanel onSubmit={investigate} loading={loading} />
+        {activeTab === 'investigate' && (
+          <>
+            <QueryPanel onSubmit={investigate} loading={loading} />
 
-        {/* Loading — only while waiting for the first plan event */}
-        {loading && !result && <LoadingState />}
+            {/* Loading — only while waiting for the first plan event */}
+            {loading && !result && <LoadingState />}
 
-        {/* Error */}
-        {error && (
-          <div className="bg-red-950/20 border border-red-900/40 rounded-2xl p-5 flex gap-4">
-            <span className="text-red-500 text-base shrink-0 mt-0.5">!</span>
-            <div className="space-y-1 min-w-0">
-              <p className="text-sm font-semibold text-red-300">Investigation Failed</p>
-              <p className="text-xs text-red-500 break-words">{error}</p>
-            </div>
-          </div>
+            {/* Error */}
+            {error && (
+              <div className="bg-red-950/20 border border-red-900/40 rounded-2xl p-5 flex gap-4">
+                <span className="text-red-500 text-base shrink-0 mt-0.5">!</span>
+                <div className="space-y-1 min-w-0">
+                  <p className="text-sm font-semibold text-red-300">Investigation Failed</p>
+                  <p className="text-xs text-red-500 break-words">{error}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Results — rendered progressively as stream events arrive */}
+            {result && (
+              <div className="space-y-8">
+
+                <ExecutionPlan
+                  plan={plan}
+                  plannerSource={plannerSource}
+                  timing={timing}
+                  errors={errors}
+                  toolStatus={toolStatus}
+                />
+
+                <DatasetOverview
+                  eda={eda}
+                  engineerFeatures={engineerFeatures}
+                  structuringData={structuringData}
+                  smurfingData={smurfingData}
+                  layeringData={layeringData}
+                  explanations={explanations}
+                />
+
+                <FindingsSection
+                  explanations={explanations}
+                  structuringData={structuringData}
+                  smurfingData={smurfingData}
+                  layeringData={layeringData}
+                  classifyData={classifyData}
+                />
+
+                {!loading && <RawResponse data={result} />}
+              </div>
+            )}
+          </>
         )}
 
         {/* Results — rendered progressively as stream events arrive */}
@@ -431,6 +516,16 @@ export default function App() {
               {!loading && <RawResponse data={result} />}
             </div>
           </ErrorBoundary>
+        {activeTab === 'watchlist' && (
+          <Watchlist />
+        )}
+
+        {activeTab === 'cases' && (
+          <Cases />
+        )}
+
+        {activeTab === 'stream' && (
+          <LiveStream />
         )}
       </main>
 

@@ -1,16 +1,13 @@
 """
-Offline XGBoost baseline training script — run ONCE from the backend/ directory.
+Retrain XGBoost model incorporating analyst feedback labels.
 
-    python scripts/train_xgboost_baseline.py
+Reads the original HI-Small_Trans.csv training data, applies analyst
+feedback overrides (TP/FP labels), and retrains the model.
 
-Methodology (mirrors financial-fraud-ring-detection.ipynb):
-  - Leakage-aware chronological 60/20/20 split on HI-Small_Trans.csv
-  - Degree features computed from train split ONLY, looked up for val/test
-  - Time-of-day / day-of-week one-hot (laundering clusters at off-hours)
-  - Amount entropy per sender account (structurers show low entropy)
-  - scale_pos_weight for class imbalance
-  - Threshold tuned by maximising F1 on validation set
-  - Model + feature list + threshold saved to data/models/xgb_baseline.joblib
+Usage:
+    python scripts/retrain_with_feedback.py
+
+Called by POST /feedback/retrain endpoint. Also runnable standalone.
 """
 
 from __future__ import annotations
@@ -18,32 +15,29 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import duckdb
 import joblib
 import numpy as np
 import pandas as pd
-from sklearn.metrics import (
-    average_precision_score,
-    classification_report,
-    precision_recall_curve,
-)
+from sklearn.metrics import average_precision_score, classification_report, precision_recall_curve
 from xgboost import XGBClassifier
 
 ROOT    = Path(__file__).parent.parent
 CSV     = ROOT / "data/raw/HI-Small_Trans.csv"
 OUT_DIR = ROOT / "data/models"
 OUT     = OUT_DIR / "xgb_baseline.joblib"
+DB_PATH = ROOT / "data/finsherlock.duckdb"
 
 SEED = 42
-_ENTROPY_BINS = 10  # number of equal-width bins for amount discretisation
+_ENTROPY_BINS = 10
 
 
 def _shannon_entropy(values: np.ndarray) -> float:
-    """Shannon entropy (in bits) of a 1-D array of values, binned into _ENTROPY_BINS."""
     if len(values) == 0:
         return 0.0
     counts, _ = np.histogram(values, bins=_ENTROPY_BINS)
     probs = counts / counts.sum()
-    probs = probs[probs > 0]  # drop empty bins
+    probs = probs[probs > 0]
     return float(-np.sum(probs * np.log2(probs)))
 
 
@@ -65,18 +59,62 @@ def precision_at_k(y_true: np.ndarray, probs: np.ndarray, ks=(50, 100, 500)) -> 
     return out
 
 
+def _load_feedback_overrides() -> dict[str, bool]:
+    """
+    Load analyst feedback and return {account_id: label} overrides.
+    Only accounts with explicit feedback are included.
+    """
+    if not DB_PATH.exists():
+        print("  No DuckDB found — running without feedback overrides.")
+        return {}
+
+    conn = duckdb.connect(str(DB_PATH), read_only=True)
+    try:
+        rows = conn.execute(
+            "SELECT account_id, label FROM analyst_feedback ORDER BY created_at"
+        ).fetchall()
+    except Exception:
+        # Table may not exist yet
+        return {}
+    finally:
+        conn.close()
+
+    if not rows:
+        print("  No analyst feedback found — training on original labels only.")
+        return {}
+
+    # Latest feedback per account wins
+    overrides = {}
+    for account_id, label in rows:
+        overrides[account_id] = bool(label)
+
+    tp = sum(1 for v in overrides.values() if v)
+    fp = sum(1 for v in overrides.values() if not v)
+    print(f"  Loaded {len(overrides)} feedback overrides ({tp} TP, {fp} FP)")
+    return overrides
+
+
 def main() -> None:
     print(f"Loading {CSV} ...")
     df = pd.read_csv(CSV, parse_dates=["Timestamp"])
-    n_launder = int(df["Is Laundering"].sum())
-    print(f"  {len(df):,} rows  |  {n_launder:,} labeled laundering  |  "
-          f"{n_launder / len(df) * 100:.4f}% positive rate")
+    n_launder_orig = int(df["Is Laundering"].sum())
+    print(f"  {len(df):,} rows  |  {n_launder_orig:,} labeled laundering")
+
+    # ── Apply analyst feedback overrides ──────────────────────────────────────
+    overrides = _load_feedback_overrides()
+    if overrides:
+        # Map sender_account_id column (named "Account" in the CSV)
+        mask = df["Account"].isin(overrides)
+        n_overridden = mask.sum()
+        # Apply overrides: TP accounts get label=1, FP accounts get label=0
+        for idx in df[mask].index:
+            acct = df.at[idx, "Account"]
+            df.at[idx, "Is Laundering"] = int(overrides[acct])
+        n_launder_new = int(df["Is Laundering"].sum())
+        print(f"  Overrode {n_overridden:,} rows  |  laundering labels: {n_launder_orig:,} → {n_launder_new:,}")
 
     # ── Stable chronological sort ──────────────────────────────────────────────
     df = df.sort_values("Timestamp", kind="mergesort").reset_index(drop=True)
-
-    # String timestamp used for Patterns.txt key matching
-    df["_ts_str"] = df["Timestamp"].dt.strftime("%Y/%m/%d %H:%M")
 
     # ── 60 / 20 / 20 chronological split ──────────────────────────────────────
     n = len(df)
@@ -86,15 +124,12 @@ def main() -> None:
     test  = df.iloc[va_end:].copy()
 
     print(f"\n  Split:  train {len(train):,}  |  val {len(val):,}  |  test {len(test):,}")
-    print(f"          laundering — train {int(train['Is Laundering'].sum()):,}  "
-          f"val {int(val['Is Laundering'].sum()):,}  "
-          f"test {int(test['Is Laundering'].sum()):,}")
 
-    # ── Degree features from TRAIN ONLY (leakage-aware) ───────────────────────
+    # ── Degree features from TRAIN ONLY ───────────────────────────────────────
     train_out_deg = train.groupby("Account").size()
     train_in_deg  = train.groupby("Account.1").size()
 
-    # ── Amount entropy per sender account from TRAIN ONLY (leakage-aware) ──────
+    # ── Amount entropy per sender from TRAIN ONLY ─────────────────────────────
     train_amount_entropy = train.groupby("Account")["Amount Paid"].apply(
         lambda s: _shannon_entropy(s.values.astype(float))
     )
@@ -104,34 +139,27 @@ def main() -> None:
         part["sender_out_degree"]  = part["Account"].map(train_out_deg).fillna(0.0)
         part["receiver_in_degree"] = part["Account.1"].map(train_in_deg).fillna(0.0)
         part["log_amount_paid"]    = np.log1p(part["Amount Paid"].astype("float64"))
-        # Amount entropy (train-only lookup, 0 for unseen accounts)
-        part["amount_entropy"] = part["Account"].map(train_amount_entropy).fillna(0.0)
+        part["amount_entropy"]     = part["Account"].map(train_amount_entropy).fillna(0.0)
         return part
-    # NOTE: is_currency_mismatch is intentionally excluded — DuckDB only stores one
-    # currency column so this can never be computed at inference. Including it in
-    # training creates a feature the live model can never reproduce.
 
     train = add_features(train)
     val   = add_features(val)
     test  = add_features(test)
 
     # ── Time-of-day / day-of-week one-hot ─────────────────────────────────────
-    def add_time_features(part: pd.DataFrame) -> tuple[pd.DataFrame, list[str], list[str]]:
-        """Add hour-of-day and day-of-week one-hot columns. Returns (df, hod_cols, dow_cols)."""
+    def add_time_features(part):
         part = part.copy()
         hod_dummies = pd.get_dummies(part["Timestamp"].dt.hour, prefix="hod", dtype=int)
         dow_dummies = pd.get_dummies(part["Timestamp"].dt.dayofweek, prefix="dow", dtype=int)
-        hod_cols = list(hod_dummies.columns)
-        dow_cols = list(dow_dummies.columns)
-        for col in hod_cols:
-            part[col] = hod_dummies[col].values
-        for col in dow_cols:
-            part[col] = dow_dummies[col].values
-        return part, hod_cols, dow_cols
+        return part, list(hod_dummies.columns), list(dow_dummies.columns), hod_dummies, dow_dummies
 
-    train, hod_cols, dow_cols = add_time_features(train)
+    train, hod_cols, dow_cols, hod_dummies, dow_dummies = add_time_features(train)
+    for col in hod_cols:
+        train[col] = hod_dummies[col].values
+    for col in dow_cols:
+        train[col] = dow_dummies[col].values
 
-    def add_time_features_aligned(part: pd.DataFrame) -> pd.DataFrame:
+    def add_time_aligned(part):
         part = part.copy()
         hod_dummies = pd.get_dummies(part["Timestamp"].dt.hour, prefix="hod", dtype=int)
         dow_dummies = pd.get_dummies(part["Timestamp"].dt.dayofweek, prefix="dow", dtype=int)
@@ -143,16 +171,16 @@ def main() -> None:
             part[col] = dow_dummies[col].values
         return part
 
-    val   = add_time_features_aligned(val)
-    test  = add_time_features_aligned(test)
+    val  = add_time_aligned(val)
+    test = add_time_aligned(test)
 
-    # ── Payment Format one-hot — categories fixed from train ──────────────────
+    # ── Payment Format one-hot ─────────────────────────────────────────────────
     fmt_dummies = pd.get_dummies(train["Payment Format"], prefix="fmt", dtype=int)
     fmt_cols    = list(fmt_dummies.columns)
     for col in fmt_cols:
         train[col] = fmt_dummies[col].values
 
-    def add_fmt(part: pd.DataFrame) -> None:
+    def add_fmt(part):
         d = pd.get_dummies(part["Payment Format"], prefix="fmt", dtype=int)
         d = d.reindex(columns=fmt_cols, fill_value=0)
         for col in fmt_cols:
@@ -163,22 +191,20 @@ def main() -> None:
 
     FEATURE_COLS = (
         ["sender_out_degree", "receiver_in_degree", "log_amount_paid", "amount_entropy"]
-        + hod_cols
-        + dow_cols
-        + fmt_cols
+        + hod_cols + dow_cols + fmt_cols
     )
-    print(f"\n  {len(FEATURE_COLS)} features: {FEATURE_COLS}")
+    print(f"\n  {len(FEATURE_COLS)} features")
 
     Xtr, ytr = train[FEATURE_COLS].values, train["Is Laundering"].values.astype(int)
     Xva, yva = val[FEATURE_COLS].values,   val["Is Laundering"].values.astype(int)
     Xte, yte = test[FEATURE_COLS].values,  test["Is Laundering"].values.astype(int)
 
-    # ── Class imbalance weight ─────────────────────────────────────────────────
+    # ── Class imbalance ────────────────────────────────────────────────────────
     scale_pos_weight = float((ytr == 0).sum()) / max(float((ytr == 1).sum()), 1.0)
-    print(f"\n  scale_pos_weight (train class ratio): {scale_pos_weight:.2f}")
+    print(f"  scale_pos_weight: {scale_pos_weight:.2f}")
 
-    # ── Train XGBoost ──────────────────────────────────────────────────────────
-    print("\n  Training XGBoost (n_estimators=300, max_depth=6, lr=0.1) ...")
+    # ── Train ──────────────────────────────────────────────────────────────────
+    print("\n  Training XGBoost ...")
     xgb = XGBClassifier(
         n_estimators=300,
         max_depth=6,
@@ -192,51 +218,44 @@ def main() -> None:
     xgb.fit(Xtr, ytr, eval_set=[(Xva, yva)], verbose=False)
     print("  Done.")
 
-    # ── Threshold selection on VAL (maximise F1) ───────────────────────────────
+    # ── Threshold ──────────────────────────────────────────────────────────────
     val_probs = xgb.predict_proba(Xva)[:, 1]
     threshold = best_threshold_by_f1(yva, val_probs)
-    print(f"\n  Best threshold by val-F1: {threshold:.4f}")
+    print(f"  Best threshold: {threshold:.4f}")
 
-    # ── Test-set evaluation ────────────────────────────────────────────────────
+    # ── Evaluate ───────────────────────────────────────────────────────────────
     test_probs = xgb.predict_proba(Xte)[:, 1]
     test_preds = (test_probs >= threshold).astype(int)
     pr_auc     = average_precision_score(yte, test_probs)
 
-    sep = "=" * 62
-    print(f"\n{sep}")
-    print("  XGBoost TEST-SET RESULTS")
-    print(sep)
+    print(f"\n{'=' * 62}")
+    print("  RETRAINED MODEL — TEST SET RESULTS")
+    print("=" * 62)
     print(classification_report(yte, test_preds, digits=4, target_names=["clean", "laundering"]))
-    print(f"  PR-AUC (Average Precision):  {pr_auc:.5f}")
+    print(f"  PR-AUC:  {pr_auc:.5f}")
     pk = precision_at_k(yte, test_probs)
     for k, v in pk.items():
         tp = int(round(v * min(k, len(yte))))
-        print(f"  Precision@{k:<5}            {v:.4f}  ({tp} true positives in top {k})")
-    print(sep)
-
-    # ── Feature importances (gain) ─────────────────────────────────────────────
-    print("\n  Feature importances (gain-based):")
-    pairs = sorted(zip(FEATURE_COLS, xgb.feature_importances_), key=lambda x: -x[1])
-    for feat, imp in pairs:
-        bar = "█" * int(imp * 50)
-        print(f"    {feat:<35} {imp:.4f}  {bar}")
+        print(f"  Precision@{k:<5}  {v:.4f}  ({tp} TP in top {k})")
+    print("=" * 62)
 
     # ── Save ───────────────────────────────────────────────────────────────────
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     payload = {
-        "model":             xgb,
-        "feature_cols":      FEATURE_COLS,
-        "fmt_cols":          fmt_cols,
-        "hod_cols":          hod_cols,
-        "dow_cols":          dow_cols,
-        "threshold":         threshold,
-        "train_out_deg":     dict(train_out_deg),
-        "train_in_deg":      dict(train_in_deg),
+        "model":               xgb,
+        "feature_cols":        FEATURE_COLS,
+        "fmt_cols":            fmt_cols,
+        "hod_cols":            hod_cols,
+        "dow_cols":            dow_cols,
+        "threshold":           threshold,
+        "train_out_deg":       dict(train_out_deg),
+        "train_in_deg":        dict(train_in_deg),
         "train_amount_entropy": dict(train_amount_entropy),
-        "pr_auc":            pr_auc,
-        "n_train":           len(train),
-        "n_val":             len(val),
-        "n_test":            len(test),
+        "pr_auc":              pr_auc,
+        "n_train":             len(train),
+        "n_val":               len(val),
+        "n_test":              len(test),
+        "feedback_overrides":  len(overrides),
     }
     joblib.dump(payload, OUT, compress=3)
     size_mb = OUT.stat().st_size / 1_048_576

@@ -5,17 +5,16 @@ Loads the XGBoost baseline trained by scripts/train_xgboost_baseline.py and
 scores each account's transactions in the DuckDB window.
 
 Features computed at inference time mirror the training features:
-  sender_out_degree    — distinct receivers for sender account in window
-  receiver_in_degree   — distinct senders for receiver account in window
-  is_currency_mismatch — always 0 (only one currency stored in DuckDB schema)
-  log_amount_paid      — log1p(amount) as proxy for Amount Paid
-  amount_entropy       — Shannon entropy of discretised amounts per sender account
-  hod_*                — one-hot of hour-of-day (0-23)
-  dow_*                — one-hot of day-of-week (0=Mon..6=Sun)
-  fmt_*                — one-hot of channel (Payment Format), categories from training
+  sender_out_degree  — distinct receivers for sender account in window
+  receiver_in_degree — distinct senders for receiver account in window
+  log_amount_paid    — log1p(amount) as proxy for Amount Paid
+  amount_entropy     — Shannon entropy of discretised amounts per sender account
+  hod_*              — one-hot of hour-of-day (0-23)
+  dow_*              — one-hot of day-of-week (0=Mon..6=Sun)
+  fmt_*              — one-hot of channel (Payment Format), categories from training
 
-Returns per-account max probability across all their transactions, plus the top
-contributing features by XGBoost feature importance (no SHAP required).
+Returns per-account max probability across all their transactions, plus SHAP
+explanations for the top risky transaction per account.
 """
 
 from __future__ import annotations
@@ -46,6 +45,9 @@ _threshold      = 0.5
 _MODEL_READY    = False
 _ENTROPY_BINS   = 10
 
+# SHAP explainer (lazy-loaded on first use)
+_shap_explainer = None
+
 try:
     _payload        = joblib.load(_MODEL_PATH)
     _model          = _payload["model"]
@@ -66,7 +68,40 @@ except Exception as exc:
     logger.error("Failed to load XGBoost model: %s", exc)
 
 
+def _get_shap_explainer():
+    """Lazy-load SHAP TreeExplainer for the XGBoost model."""
+    global _shap_explainer
+    if _shap_explainer is None and _MODEL_READY:
+        try:
+            import shap
+            _shap_explainer = shap.TreeExplainer(_model)
+            logger.info("SHAP TreeExplainer initialized")
+        except Exception as exc:
+            logger.warning("Failed to initialize SHAP explainer: %s", exc)
+    return _shap_explainer
+
+
+def reload_model():
+    """Hot-reload the XGBoost model from disk (called after retrain)."""
+    global _model, _feat_cols, _fmt_cols, _hod_cols, _dow_cols, _threshold, _MODEL_READY, _shap_explainer
+    try:
+        payload     = joblib.load(_MODEL_PATH)
+        _model      = payload["model"]
+        _feat_cols  = payload["feature_cols"]
+        _fmt_cols   = payload["fmt_cols"]
+        _hod_cols   = payload.get("hod_cols", [])
+        _dow_cols   = payload.get("dow_cols", [])
+        _threshold  = payload["threshold"]
+        _MODEL_READY = True
+        _shap_explainer = None  # reset SHAP explainer
+        logger.info("Model hot-reloaded from %s (threshold=%.4f)", _MODEL_PATH, _threshold)
+    except Exception as exc:
+        logger.error("Failed to hot-reload model: %s", exc)
+        _MODEL_READY = False
+
+
 # ── Tool definition ────────────────────────────────────────────────────────────
+
 
 class MLRiskScoreArgs(BaseModel):
     account_ids: Optional[list[str]] = Field(
@@ -84,6 +119,57 @@ class MLRiskScoreArgs(BaseModel):
         default=20, ge=1, le=200,
         description="Return only the top-N highest-probability accounts.",
     )
+    include_shap: bool = Field(
+        default=True,
+        description="Include SHAP explanations for top risky transaction per account.",
+    )
+
+
+def _compute_shap_explanation(account_id: str, df: pd.DataFrame, explainer) -> Optional[dict]:
+    """Compute SHAP explanation for the highest-risk transaction of an account."""
+    try:
+        acct_df = df[df["sender_account_id"] == account_id]
+        if acct_df.empty:
+            return None
+        
+        # Get the highest-risk transaction
+        top_idx = acct_df["ml_prob"].idxmax()
+        top_row = acct_df.loc[[top_idx], _feat_cols].values
+        
+        # Compute SHAP values
+        shap_values = explainer.shap_values(top_row)
+        # For binary classification, shap_values is a list [class0, class1] or just class1
+        if isinstance(shap_values, list):
+            shap_vals = shap_values[1][0]  # class 1 (positive)
+        else:
+            shap_vals = shap_values[0]  # already class 1
+        
+        # Get feature names and values for the top transaction
+        feat_vals = top_row[0]
+        
+        # Build contribution list (feature -> shap value)
+        contributions = []
+        for feat_name, feat_val, shap_val in zip(_feat_cols, feat_vals, shap_vals):
+            if feat_val != 0:  # only show active features
+                contributions.append({
+                    "feature": feat_name,
+                    "value": round(float(feat_val), 4),
+                    "shap_value": round(float(shap_val), 4),
+                    "direction": "increases_risk" if shap_val > 0 else "decreases_risk",
+                })
+        
+        # Sort by absolute SHAP value
+        contributions.sort(key=lambda x: abs(x["shap_value"]), reverse=True)
+        
+        return {
+            "transaction_id": acct_df.loc[top_idx, "transaction_id"],
+            "base_value": round(float(explainer.expected_value[1] if isinstance(explainer.expected_value, list) else explainer.expected_value), 4),
+            "prediction": round(float(acct_df.loc[top_idx, "ml_prob"]), 4),
+            "top_contributions": contributions[:10],  # top 10 contributors
+        }
+    except Exception as exc:
+        logger.warning("SHAP computation failed for account %s: %s", account_id, exc)
+        return None
 
 
 @tool(
@@ -91,7 +177,7 @@ class MLRiskScoreArgs(BaseModel):
     description=(
         "Scores accounts with a supervised XGBoost model trained on labeled IBM HI-Small "
         "transactions. Returns per-account ML probability (0-1), binary label at the "
-        "F1-tuned threshold, and top contributing features by importance. "
+        "F1-tuned threshold, and SHAP explanations for the top risky transaction. "
         "Complements detect_anomalies with a supervised signal."
     ),
     schema=MLRiskScoreArgs,
@@ -139,14 +225,12 @@ def ml_risk_score(args: MLRiskScoreArgs) -> dict:
         }
 
     # ── Compute degree features from the window ────────────────────────────────
-    # (These are live counts from available data, not from the training split.)
     out_deg = df.groupby("sender_account_id")["receiver_account_id"].nunique()
     in_deg  = df.groupby("receiver_account_id")["sender_account_id"].nunique()
 
-    df["sender_out_degree"]    = df["sender_account_id"].map(out_deg).fillna(0.0)
-    df["receiver_in_degree"]   = df["receiver_account_id"].map(in_deg).fillna(0.0)
-    df["is_currency_mismatch"] = 0          # only one currency column in DuckDB schema
-    df["log_amount_paid"]      = np.log1p(df["amount"].astype("float64"))
+    df["sender_out_degree"]  = df["sender_account_id"].map(out_deg).fillna(0.0)
+    df["receiver_in_degree"] = df["receiver_account_id"].map(in_deg).fillna(0.0)
+    df["log_amount_paid"]    = np.log1p(df["amount"].astype("float64"))
 
     # ── Amount entropy per sender account ─────────────────────────────────────
     def _shannon_entropy(values):
@@ -178,6 +262,11 @@ def ml_risk_score(args: MLRiskScoreArgs) -> dict:
     for col in _fmt_cols:
         df[col] = fmt_dummies[col].values
 
+    # ── Old-model compat: is_currency_mismatch was removed from training but
+    # may still appear in feat_cols if the model has not been retrained yet ─────
+    if "is_currency_mismatch" in _feat_cols:
+        df["is_currency_mismatch"] = 0
+
     # ── Score each transaction ─────────────────────────────────────────────────
     X = df[_feat_cols].values
     probs = _model.predict_proba(X)[:, 1]
@@ -203,29 +292,41 @@ def ml_risk_score(args: MLRiskScoreArgs) -> dict:
     # ── Sort and limit ─────────────────────────────────────────────────────────
     agg = agg.sort_values("max_prob", ascending=False).head(args.top_n)
 
-    # ── Build feature contribution summary (importance-based, no SHAP) ─────────
+    # ── Global feature importance (model-level) ────────────────────────────────
     imp_map = dict(zip(_feat_cols, _model.feature_importances_))
     top_feats = [
         {"feature": f, "importance": round(float(v), 4)}
         for f, v in sorted(imp_map.items(), key=lambda x: -x[1])[:5]
     ]
 
+    # ── SHAP explainer (lazy init) ─────────────────────────────────────────────
+    explainer = _get_shap_explainer() if args.include_shap else None
+
     results = []
     for row in agg.itertuples(index=False):
         # Per-account highest-risk transaction
         top_txn = df[df["sender_account_id"] == row.account_id].nlargest(1, "ml_prob")
-        results.append({
-            "account_id":   row.account_id,
-            "ml_probability": round(float(row.max_prob), 4),
-            "ml_mean_prob":   round(float(row.mean_prob), 4),
-            "ml_flagged":     bool(row.ml_flagged),
-            "txn_count":      int(row.txn_count),
+        
+        result = {
+            "account_id":      row.account_id,
+            "ml_probability":  round(float(row.max_prob), 4),
+            "ml_mean_prob":    round(float(row.mean_prob), 4),
+            "ml_flagged":      bool(row.ml_flagged),
+            "txn_count":       int(row.txn_count),
             "top_transaction": {
                 "transaction_id": top_txn["transaction_id"].iloc[0],
                 "amount":         float(top_txn["amount"].iloc[0]),
                 "ml_prob":        round(float(top_txn["ml_prob"].iloc[0]), 4),
             } if not top_txn.empty else None,
-        })
+        }
+        
+        # Add SHAP explanation if available
+        if explainer and not top_txn.empty:
+            shap_exp = _compute_shap_explanation(row.account_id, df, explainer)
+            if shap_exp:
+                result["shap_explanation"] = shap_exp
+        
+        results.append(result)
 
     flagged_count = sum(1 for r in results if r["ml_flagged"])
 

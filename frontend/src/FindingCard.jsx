@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import RiskGauge from './RiskGauge'
 import GraphView from './GraphView'
 import TimelineView from './TimelineView'
@@ -168,12 +169,140 @@ function LayeringDetail({ layerPath }) {
   )
 }
 
+// ─── SHAP bar chart ────────────────────────────────────────────────────────
+
+function SHAPBar({ value, maxAbs }) {
+  const pct = maxAbs > 0 ? Math.abs(value) / maxAbs * 50 : 0
+  const positive = value >= 0
+  return (
+    <div className="relative flex items-center h-3 w-full">
+      {/* centre line */}
+      <div className="absolute left-1/2 top-0 bottom-0 w-px bg-slate-700" />
+      {positive ? (
+        <div
+          className="absolute left-1/2 h-2 rounded-r bg-red-500/80"
+          style={{ width: `${pct}%` }}
+        />
+      ) : (
+        <div
+          className="absolute right-1/2 h-2 rounded-l bg-emerald-500/70"
+          style={{ width: `${pct}%` }}
+        />
+      )}
+    </div>
+  )
+}
+
+function SHAPPanel({ accountId, windowDays }) {
+  const [state, setState] = useState('idle')  // idle | loading | done | error
+  const [data, setData]   = useState(null)
+  const [errMsg, setErrMsg] = useState('')
+
+  const load = useCallback(async () => {
+    setState('loading')
+    try {
+      const res = await fetch('http://localhost:8000/tools/shap_explain', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ account_ids: [accountId], window_days: windowDays ?? 30 }),
+      })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const json = await res.json()
+      if (!json.ready) throw new Error(json.message ?? 'SHAP not ready')
+      setData(json.explanations?.[0] ?? null)
+      setState('done')
+    } catch (err) {
+      setErrMsg(err.message)
+      setState('error')
+    }
+  }, [accountId, windowDays])
+
+  if (state === 'idle') {
+    return (
+      <button
+        onClick={load}
+        className="text-[10px] font-semibold text-indigo-400 hover:text-indigo-300 border border-indigo-900/50 hover:border-indigo-700 bg-indigo-950/20 hover:bg-indigo-950/40 px-3 py-1.5 rounded-lg transition-all"
+      >
+        Explain with SHAP
+      </button>
+    )
+  }
+
+  if (state === 'loading') {
+    return (
+      <div className="text-[10px] text-slate-600 animate-pulse px-1">
+        Computing SHAP values…
+      </div>
+    )
+  }
+
+  if (state === 'error') {
+    return (
+      <div className="text-[10px] text-red-500 px-1">
+        SHAP error: {errMsg}
+      </div>
+    )
+  }
+
+  if (!data) {
+    return (
+      <div className="text-[10px] text-slate-600 px-1">
+        No SHAP data returned for this account.
+      </div>
+    )
+  }
+
+  const maxAbs = Math.max(...data.shap_values.map(s => Math.abs(s.shap_value)), 0.0001)
+
+  return (
+    <div className="space-y-3">
+      <p className="text-[11px] text-slate-300 leading-relaxed italic border-l-2 border-indigo-800 pl-3">
+        {data.narrative}
+      </p>
+      <div className="bg-slate-950/60 border border-slate-800 rounded-xl overflow-hidden">
+        <div className="px-3 py-2 border-b border-slate-800 flex items-center justify-between">
+          <span className="text-[9px] text-slate-600 font-bold uppercase tracking-widest">
+            SHAP Feature Attribution · txn {String(data.transaction_id).slice(-8)}
+          </span>
+          <span className="text-[9px] text-slate-700 font-mono">
+            p={data.ml_probability.toFixed(3)} · base={data.base_probability.toFixed(3)}
+          </span>
+        </div>
+        <div className="divide-y divide-slate-800/40">
+          {data.shap_values.map((s, i) => (
+            <div key={i} className="grid grid-cols-[1fr_6rem_3.5rem] items-center gap-3 px-3 py-1.5">
+              <span className="text-[10px] text-slate-400 truncate" title={s.label}>{s.label}</span>
+              <SHAPBar value={s.shap_value} maxAbs={maxAbs} />
+              <span className={`text-[10px] font-mono text-right tabular-nums ${
+                s.shap_value >= 0 ? 'text-red-400' : 'text-emerald-400'
+              }`}>
+                {s.shap_value >= 0 ? '+' : ''}{s.shap_value.toFixed(3)}
+              </span>
+            </div>
+          ))}
+        </div>
+        <div className="px-3 py-1.5 border-t border-slate-800 flex gap-6 text-[9px] text-slate-700">
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block w-3 h-2 rounded-r bg-red-500/70" /> increases risk
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block w-3 h-2 rounded-l bg-emerald-500/60" /> decreases risk
+          </span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Main card ─────────────────────────────────────────────────────────────
 
 export default function FindingCard({ exp, structuringData, smurfingData, layeringData, classifyData }) {
   const [feedback, setFeedback] = useState(null) // 'confirmed' | 'false_positive'
+export default function FindingCard({ exp, structuringData, smurfingData, layeringData, classifyData, onFeedback }) {
   const risk = RISK[exp.risk_level] ?? RISK.low
   const escCls = ESC[exp.escalation] ?? 'bg-slate-800 text-slate-400 border-slate-700'
+  const [feedbackState, setFeedbackState] = useState(null) // null | 'tp' | 'fp' | 'submitting' | 'done'
+  const [error, setError] = useState(null)
 
   const structEntry   = structuringData?.flagged_accounts?.find(a => a.account_id === exp.account_id)
   const smurfEntry    = smurfingData?.flagged_accounts?.find(a => a.account_id === exp.account_id)
@@ -189,6 +318,29 @@ export default function FindingCard({ exp, structuringData, smurfingData, layeri
       layerPath:   layerPath     ?? null,
       filingDate:  new Date().toISOString().split('T')[0],
     })
+  }
+
+  const handleFeedback = async (label) => {
+    setFeedbackState('submitting')
+    setError(null)
+    try {
+      const res = await fetch('http://localhost:8000/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          account_id: exp.account_id,
+          label,
+          risk_score: (exp.risk_score ?? 0) / 100,
+          query_text: exp.explanation,
+        }),
+      })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      setFeedbackState(label ? 'tp' : 'fp')
+      if (onFeedback) onFeedback(exp.account_id, label)
+    } catch (err) {
+      setError(err.message)
+      setFeedbackState(null)
+    }
   }
 
   const hasDetails = structEntry || smurfEntry || layerPath
@@ -242,6 +394,45 @@ export default function FindingCard({ exp, structuringData, smurfingData, layeri
           <span className={`px-3.5 py-1 rounded-full border text-[10px] font-bold uppercase tracking-widest ${escCls}`}>
             {exp.escalation}
           </span>
+
+          {/* Analyst feedback buttons */}
+          {feedbackState !== 'tp' && feedbackState !== 'fp' ? (
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => handleFeedback(true)}
+                disabled={feedbackState === 'submitting'}
+                title="Mark as True Positive — confirmed suspicious"
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-red-900/60 bg-red-950/30 hover:bg-red-950/60 text-[10px] font-bold text-red-400 hover:text-red-300 transition-all disabled:opacity-40"
+              >
+                <svg viewBox="0 0 12 12" className="w-2.5 h-2.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                  <path d="M1 6.5l3 3 7-7" />
+                </svg>
+                TP
+              </button>
+              <button
+                onClick={() => handleFeedback(false)}
+                disabled={feedbackState === 'submitting'}
+                title="Mark as False Positive — not suspicious"
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-emerald-900/60 bg-emerald-950/30 hover:bg-emerald-950/60 text-[10px] font-bold text-emerald-400 hover:text-emerald-300 transition-all disabled:opacity-40"
+              >
+                <svg viewBox="0 0 12 12" className="w-2.5 h-2.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                  <path d="M2 2l8 8M10 2l-8 8" />
+                </svg>
+                FP
+              </button>
+            </div>
+          ) : (
+            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full border text-[10px] font-bold ${
+              feedbackState === 'tp'
+                ? 'border-red-800 bg-red-950/50 text-red-300'
+                : 'border-emerald-800 bg-emerald-950/50 text-emerald-300'
+            }`}>
+              {feedbackState === 'tp' ? '✓ True Positive' : '✓ False Positive'}
+            </span>
+          )}
+
+          {error && <span className="text-[10px] text-red-500">{error}</span>}
+
           <button
             onClick={handleExportSAR}
             title="Export SAR draft as HTML (printable to PDF)"
@@ -295,6 +486,11 @@ export default function FindingCard({ exp, structuringData, smurfingData, layeri
             </div>
           </Section>
         )}
+
+        {/* SHAP explanation — on-demand per transaction */}
+        <Section title="ML Explanation">
+          <SHAPPanel accountId={exp.account_id} windowDays={30} />
+        </Section>
 
         {/* Detection detail panels */}
         {hasDetails && (
