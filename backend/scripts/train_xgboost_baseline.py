@@ -101,15 +101,15 @@ def main() -> None:
 
     def add_features(part: pd.DataFrame) -> pd.DataFrame:
         part = part.copy()
-        part["sender_out_degree"]    = part["Account"].map(train_out_deg).fillna(0.0)
-        part["receiver_in_degree"]   = part["Account.1"].map(train_in_deg).fillna(0.0)
-        part["is_currency_mismatch"] = (
-            part["Payment Currency"].astype(str) != part["Receiving Currency"].astype(str)
-        ).astype("int8")
-        part["log_amount_paid"] = np.log1p(part["Amount Paid"].astype("float64"))
+        part["sender_out_degree"]  = part["Account"].map(train_out_deg).fillna(0.0)
+        part["receiver_in_degree"] = part["Account.1"].map(train_in_deg).fillna(0.0)
+        part["log_amount_paid"]    = np.log1p(part["Amount Paid"].astype("float64"))
         # Amount entropy (train-only lookup, 0 for unseen accounts)
         part["amount_entropy"] = part["Account"].map(train_amount_entropy).fillna(0.0)
         return part
+    # NOTE: is_currency_mismatch is intentionally excluded — DuckDB only stores one
+    # currency column so this can never be computed at inference. Including it in
+    # training creates a feature the live model can never reproduce.
 
     train = add_features(train)
     val   = add_features(val)
@@ -162,8 +162,7 @@ def main() -> None:
     add_fmt(test)
 
     FEATURE_COLS = (
-        ["sender_out_degree", "receiver_in_degree", "is_currency_mismatch",
-         "log_amount_paid", "amount_entropy"]
+        ["sender_out_degree", "receiver_in_degree", "log_amount_paid", "amount_entropy"]
         + hod_cols
         + dow_cols
         + fmt_cols

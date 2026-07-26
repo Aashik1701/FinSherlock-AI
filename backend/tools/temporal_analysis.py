@@ -96,10 +96,9 @@ def _score_window(
     out_deg = df.groupby("sender_account_id")["receiver_account_id"].nunique()
     in_deg = df.groupby("receiver_account_id")["sender_account_id"].nunique()
 
-    df["sender_out_degree"] = df["sender_account_id"].map(out_deg).fillna(0.0)
+    df["sender_out_degree"]  = df["sender_account_id"].map(out_deg).fillna(0.0)
     df["receiver_in_degree"] = df["receiver_account_id"].map(in_deg).fillna(0.0)
-    df["is_currency_mismatch"] = 0
-    df["log_amount_paid"] = np.log1p(df["amount"].astype("float64"))
+    df["log_amount_paid"]    = np.log1p(df["amount"].astype("float64"))
 
     # ── Amount entropy ─────────────────────────────────────────────────────────
     acct_entropy = df.groupby("sender_account_id")["amount"].apply(

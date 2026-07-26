@@ -5,14 +5,13 @@ Loads the XGBoost baseline trained by scripts/train_xgboost_baseline.py and
 scores each account's transactions in the DuckDB window.
 
 Features computed at inference time mirror the training features:
-  sender_out_degree    — distinct receivers for sender account in window
-  receiver_in_degree   — distinct senders for receiver account in window
-  is_currency_mismatch — always 0 (only one currency stored in DuckDB schema)
-  log_amount_paid      — log1p(amount) as proxy for Amount Paid
-  amount_entropy       — Shannon entropy of discretised amounts per sender account
-  hod_*                — one-hot of hour-of-day (0-23)
-  dow_*                — one-hot of day-of-week (0=Mon..6=Sun)
-  fmt_*                — one-hot of channel (Payment Format), categories from training
+  sender_out_degree  — distinct receivers for sender account in window
+  receiver_in_degree — distinct senders for receiver account in window
+  log_amount_paid    — log1p(amount) as proxy for Amount Paid
+  amount_entropy     — Shannon entropy of discretised amounts per sender account
+  hod_*              — one-hot of hour-of-day (0-23)
+  dow_*              — one-hot of day-of-week (0=Mon..6=Sun)
+  fmt_*              — one-hot of channel (Payment Format), categories from training
 
 Returns per-account max probability across all their transactions, plus the top
 contributing features by XGBoost feature importance (no SHAP required).
@@ -143,10 +142,9 @@ def ml_risk_score(args: MLRiskScoreArgs) -> dict:
     out_deg = df.groupby("sender_account_id")["receiver_account_id"].nunique()
     in_deg  = df.groupby("receiver_account_id")["sender_account_id"].nunique()
 
-    df["sender_out_degree"]    = df["sender_account_id"].map(out_deg).fillna(0.0)
-    df["receiver_in_degree"]   = df["receiver_account_id"].map(in_deg).fillna(0.0)
-    df["is_currency_mismatch"] = 0          # only one currency column in DuckDB schema
-    df["log_amount_paid"]      = np.log1p(df["amount"].astype("float64"))
+    df["sender_out_degree"]  = df["sender_account_id"].map(out_deg).fillna(0.0)
+    df["receiver_in_degree"] = df["receiver_account_id"].map(in_deg).fillna(0.0)
+    df["log_amount_paid"]    = np.log1p(df["amount"].astype("float64"))
 
     # ── Amount entropy per sender account ─────────────────────────────────────
     def _shannon_entropy(values):

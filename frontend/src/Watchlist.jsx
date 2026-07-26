@@ -243,11 +243,6 @@ export default function Watchlist() {
     return sortDir === 'asc' ? av - bv : bv - av
   })
 
-  // Build sparkline data for each account
-  // We don't have temporal data until expanded, so sparkline is empty until then
-  // Actually, we'll pre-fetch temporal for the whole list in the future;
-  // for now the sparkline shows the single-window ML prob as a flat line
-  // (will be populated when expanded)
 
   return (
     <section className="space-y-4">
