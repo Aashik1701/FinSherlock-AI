@@ -4,6 +4,7 @@ import ExecutionPlan from './ExecutionPlan'
 import FindingCard   from './FindingCard'
 import Watchlist     from './Watchlist'
 import Cases         from './Cases'
+import LiveStream    from './LiveStream'
 
 const API_BASE = 'http://localhost:8000'
 
@@ -377,6 +378,16 @@ export default function App() {
             >
               Cases
             </button>
+            <button
+              onClick={() => setActiveTab('stream')}
+              className={`px-3 py-1.5 rounded-md text-[11px] font-semibold transition-all ${
+                activeTab === 'stream'
+                  ? 'bg-slate-800 text-slate-100 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-400'
+              }`}
+            >
+              Live Stream
+            </button>
           </nav>
 
           <div className="flex items-center gap-5 shrink-0">
@@ -460,6 +471,10 @@ export default function App() {
 
         {activeTab === 'cases' && (
           <Cases />
+        )}
+
+        {activeTab === 'stream' && (
+          <LiveStream />
         )}
       </main>
 

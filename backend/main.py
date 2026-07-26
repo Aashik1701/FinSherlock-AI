@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from typing import Any, Optional
@@ -509,6 +510,96 @@ def _feedback_row_to_dict(row) -> dict:
         "created_by", "created_at",
     ]
     return {col: row[i] for i, col in enumerate(cols)}
+
+
+# ---------------------------------------------------------------------------
+# Real-time stream simulation endpoints
+# ---------------------------------------------------------------------------
+
+from stream_simulator import simulator as _stream_sim
+
+
+class StreamStartRequest(BaseModel):
+    speed: float = Field(default=100.0, ge=0.1, le=10000, description="Real-time multiplier (100x = 1s real = 100s data)")
+
+
+@app.post("/stream/start", tags=["stream"])
+async def stream_start(request: StreamStartRequest = StreamStartRequest()) -> dict:
+    """Start the transaction stream simulation in the background."""
+    result = await _stream_sim.start(speed=request.speed)
+    if "error" in result:
+        raise HTTPException(status_code=409, detail=result["error"])
+    return result
+
+
+@app.post("/stream/stop", tags=["stream"])
+async def stream_stop() -> dict:
+    """Stop the running stream simulation."""
+    result = await _stream_sim.stop()
+    if "error" in result:
+        raise HTTPException(status_code=409, detail=result["error"])
+    return result
+
+
+@app.post("/stream/pause", tags=["stream"])
+async def stream_pause() -> dict:
+    """Pause the stream (transactions stop inserting)."""
+    result = await _stream_sim.pause()
+    if "error" in result:
+        raise HTTPException(status_code=409, detail=result["error"])
+    return result
+
+
+@app.post("/stream/resume", tags=["stream"])
+async def stream_resume() -> dict:
+    """Resume a paused stream."""
+    result = await _stream_sim.resume()
+    if "error" in result:
+        raise HTTPException(status_code=409, detail=result["error"])
+    return result
+
+
+@app.get("/stream/status", tags=["stream"])
+def stream_status() -> dict:
+    """Get current stream simulation status."""
+    return _stream_sim.status.to_dict()
+
+
+@app.get("/stream/events", tags=["stream"])
+async def stream_events():
+    """
+    SSE endpoint — streams live transaction + alert events.
+    Each event is `data: {json}\n\n`.
+    Event types: transaction, alert, status, complete, error.
+    """
+    queue = _stream_sim.subscribe()
+
+    async def event_generator():
+        try:
+            # Send current status immediately
+            import json as _json
+            yield f"data: {_json.dumps(_stream_sim.status.to_dict(), default=str)}\n\n"
+            while True:
+                try:
+                    event = await asyncio.wait_for(queue.get(), timeout=30)
+                    yield event.to_sse()
+                    if event.type == "complete":
+                        break
+                except asyncio.TimeoutError:
+                    # Send heartbeat to keep connection alive
+                    yield ": heartbeat\n\n"
+        finally:
+            _stream_sim.unsubscribe(queue)
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )
 
 
 # Register one POST /tools/{name} per entry in TOOL_REGISTRY at startup
