@@ -154,6 +154,47 @@ def investigate_stream(request: InvestigateRequest) -> StreamingResponse:
     )
 
 
+# ---------------------------------------------------------------------------
+# Watchlist endpoints
+# ---------------------------------------------------------------------------
+
+
+@app.get("/watchlist", tags=["watchlist"])
+def watchlist(top_n: int = 50, window_days: int = 30) -> dict:
+    """
+    Ranked watchlist — scores every account with XGBoost and returns
+    the top-N ranked by ML probability. The "daily analyst briefing" endpoint.
+    """
+    try:
+        return call_tool("ml_risk_score", {"top_n": top_n, "window_days": window_days})
+    except Exception as exc:
+        logger.exception("Watchlist failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/watchlist/temporal", tags=["watchlist"])
+def watchlist_temporal(
+    account_ids: str = "",
+    windows: str = "7,30,90",
+    top_n: int = 50,
+) -> dict:
+    """
+    Temporal analysis — runs the full detection stack (structuring, smurfing,
+    layering, ML) at multiple time windows per account. Shows how risk evolves.
+    """
+    try:
+        ids = [a.strip() for a in account_ids.split(",") if a.strip()] or None
+        ws = [int(w.strip()) for w in windows.split(",") if w.strip()]
+        return call_tool("temporal_analysis", {
+            "account_ids": ids,
+            "windows": ws,
+            "top_n": top_n,
+        })
+    except Exception as exc:
+        logger.exception("Temporal analysis failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
 # Register one POST /tools/{name} per entry in TOOL_REGISTRY at startup
 for _name, _entry in TOOL_REGISTRY.items():
     _handler = _make_tool_handler(_name)
