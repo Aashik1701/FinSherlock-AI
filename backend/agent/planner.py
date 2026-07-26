@@ -62,9 +62,10 @@ Use exactly this structure:
     "date_from":   null,
     "date_to":     null,
     "account_ids": null,
-    "country":     null,
-    "segment":     null,
-    "window_days": 30
+    "country":          null,
+    "segment":          null,
+    "transaction_type": null,
+    "window_days":      30
   }},
   "target_pattern": "<null | structuring | smurfing | layering>",
   "plan": [
@@ -236,13 +237,20 @@ def deterministic_fallback_plan(query: str) -> dict:
     if segment_match:
         segment = segment_match.group(1).lower()
 
+    # --- Extract optional transaction_type filter ---
+    transaction_type: str | None = None
+    txn_type_match = re.search(r"\b(cash[\s_]?deposit|wire|transfer|withdrawal|crypto)\b", q)
+    if txn_type_match:
+        transaction_type = txn_type_match.group(1).lower().replace(" ", "_")
+
     base_filters: dict[str, Any] = {
-        "date_from":   date_from,
-        "date_to":     date_to,
-        "account_ids": None,
-        "country":     country,
-        "segment":     segment,
-        "window_days": window_days,
+        "date_from":        date_from,
+        "date_to":          date_to,
+        "account_ids":      None,
+        "country":          country,
+        "segment":          segment,
+        "transaction_type": transaction_type,
+        "window_days":      window_days,
     }
 
     # 0. Pure Aggregation query path ———————————————————————————————————————————

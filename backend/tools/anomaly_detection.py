@@ -73,6 +73,10 @@ class DetectStructuringArgs(BaseModel):
         default=None,
         description="Customer account segment filter (e.g. 'retail', 'corporate').",
     )
+    transaction_type: Optional[str] = Field(
+        default=None,
+        description="Transaction channel/type filter (e.g. 'cash_deposit', 'wire').",
+    )
 
 
 @tool(
@@ -106,6 +110,8 @@ def detect_structuring(args: DetectStructuringArgs) -> dict:
         account_filter += f" AND sender_account_id IN ({ids_sql})"
     if args.country:
         account_filter += f" AND country = '{args.country}'"
+    if args.transaction_type:
+        account_filter += f" AND transaction_type = '{args.transaction_type}'"
 
     # Count distinct senders in window (for reporting)
     accounts_scanned: int = conn.execute(
