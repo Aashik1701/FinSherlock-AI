@@ -39,17 +39,42 @@ _INJECT: dict[str, str] = {
     "classify_output":    "classify_risk",
 }
 
+# Placeholder strings that should be resolved from prior tool results.
+# Maps: placeholder string → (source_tool, extractor_lambda)
+_PLACEHOLDER_RESOLVERS: dict[str, tuple[str, callable]] = {
+    "from_ml_output": (
+        "ml_risk_score",
+        lambda result: [a["account_id"] for a in result.get("scored_accounts", []) if "account_id" in a],
+    ),
+}
+
 
 def _inject_results(step_args: dict[str, Any], accumulated: dict[str, Any]) -> dict[str, Any]:
     """
-    Return a copy of step_args with injection placeholders (None) replaced by
+    Return a copy of step_args with injection placeholders replaced by
     the corresponding accumulated tool result, if available.
+
+    Two mechanisms:
+      1. None-valued fields in _INJECT → filled from the named tool's full result.
+      2. String placeholders in args values → resolved via _PLACEHOLDER_RESOLVERS.
     """
     args = dict(step_args)
+
+    # Mechanism 1: None-valued injection fields
     for field, source_tool in _INJECT.items():
         if field in args and args[field] is None and source_tool in accumulated:
             args[field] = accumulated[source_tool]
             logger.debug("  injected %s from %s", field, source_tool)
+
+    # Mechanism 2: String placeholders in arg values
+    for key, value in args.items():
+        if isinstance(value, str) and value in _PLACEHOLDER_RESOLVERS:
+            source_tool, extractor = _PLACEHOLDER_RESOLVERS[value]
+            if source_tool in accumulated:
+                resolved = extractor(accumulated[source_tool])
+                args[key] = resolved
+                logger.debug("  resolved placeholder '%s' for arg %s → %d items from %s", value, key, len(resolved), source_tool)
+
     return args
 
 

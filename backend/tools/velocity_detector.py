@@ -85,15 +85,29 @@ class DetectVelocitySpikesArgs(BaseModel):
 def detect_velocity_spikes(args: DetectVelocitySpikesArgs) -> dict:
     conn = get_connection()
 
-    # ── 1. Determine time window ──────────────────────────────────────────────
-    row = conn.execute("SELECT MAX(timestamp) FROM transactions").fetchone()
-    if row[0] is None:
-        return {"flagged_accounts": [], "accounts_scanned": 0, "note": "No transaction data."}
+    # ── 1. Determine as_of date ───────────────────────────────────────────────
+    # Use the last date that had ≥ 1000 transactions (dense IBM data) rather
+    # than MAX(timestamp), which is skewed by sparse outlier/mystery rows.
+    if args.date_to:
+        as_of = pd.Timestamp(args.date_to)
+    else:
+        bulk_row = conn.execute("""
+            SELECT MAX(ts_date) FROM (
+                SELECT CAST(timestamp AS DATE) AS ts_date, COUNT(*) AS n
+                FROM transactions
+                GROUP BY ts_date
+                HAVING COUNT(*) >= 1000
+            ) t
+        """).fetchone()
+        if bulk_row[0] is None:
+            return {"flagged_accounts": [], "accounts_scanned": 0, "note": "No transaction data."}
+        as_of = pd.Timestamp(bulk_row[0])
 
-    as_of = pd.Timestamp(args.date_to) if args.date_to else pd.Timestamp(row[0])
-    baseline_days = max(args.baseline_days, args.window_days + 1)
-    hist_start    = as_of - pd.Timedelta(days=baseline_days)
-    recent_start  = as_of - pd.Timedelta(days=args.window_days)
+    baseline_days     = max(args.baseline_days, args.window_days + 1)
+    hist_baseline_days = baseline_days - args.window_days
+    hist_start        = as_of - pd.Timedelta(days=baseline_days)
+    recent_start      = as_of - pd.Timedelta(days=args.window_days)
+    threshold         = args.spike_ratio
 
     # ── 2. Account filter ─────────────────────────────────────────────────────
     account_filter = ""
@@ -101,126 +115,94 @@ def detect_velocity_spikes(args: DetectVelocitySpikesArgs) -> dict:
         ids_sql = ", ".join(f"'{aid}'" for aid in args.account_ids)
         account_filter = f"AND sender_account_id IN ({ids_sql})"
 
-    # ── 3. Load all transactions in baseline window ───────────────────────────
-    df: pd.DataFrame = conn.execute(
-        f"""
-        SELECT
-            sender_account_id AS account_id,
-            timestamp,
-            amount
-        FROM transactions
-        WHERE timestamp >= TIMESTAMP '{hist_start.isoformat()}'
+    # ── 3. All aggregation in DuckDB — no raw rows loaded into Python ─────────
+    # accounts_scanned is folded into the recent CTE to avoid a second table scan.
+    result_df: pd.DataFrame = conn.execute(f"""
+        WITH recent AS (
+            SELECT
+                sender_account_id                            AS account_id,
+                COUNT(*)                                     AS txn_count_recent,
+                SUM(amount)                                  AS total_volume_recent,
+                CAST(MIN(timestamp) AS DATE)                 AS spike_date,
+                COUNT(*)::DOUBLE / {max(args.window_days, 1)} AS current_velocity
+            FROM transactions
+            WHERE timestamp >= TIMESTAMP '{recent_start.isoformat()}'
+              AND timestamp <= TIMESTAMP '{as_of.isoformat()}'
+              {account_filter}
+            GROUP BY sender_account_id
+        ),
+        hist AS (
+            SELECT
+                sender_account_id                                AS account_id,
+                COUNT(*)::DOUBLE / {max(hist_baseline_days, 1)}  AS baseline_velocity
+            FROM transactions
+            WHERE timestamp >= TIMESTAMP '{hist_start.isoformat()}'
+              AND timestamp <  TIMESTAMP '{recent_start.isoformat()}'
+              {account_filter}
+            GROUP BY sender_account_id
+        ),
+        combined AS (
+            SELECT
+                r.account_id,
+                r.txn_count_recent,
+                r.total_volume_recent,
+                r.spike_date,
+                r.current_velocity,
+                COALESCE(h.baseline_velocity, 0.0) AS baseline_velocity,
+                CASE
+                    WHEN COALESCE(h.baseline_velocity, 0) > 0
+                    THEN r.current_velocity / h.baseline_velocity
+                    ELSE r.current_velocity
+                END AS spike_ratio
+            FROM recent r
+            LEFT JOIN hist h ON r.account_id = h.account_id
+        )
+        SELECT *, (SELECT COUNT(*) FROM recent) AS accounts_scanned
+        FROM combined
+        WHERE spike_ratio      >= {threshold}
+           OR current_velocity >= {_MIN_ABS_VELOCITY}
+        ORDER BY spike_ratio DESC
+        LIMIT {args.top_n}
+    """).df()
+
+    accounts_scanned: int = int(result_df["accounts_scanned"].iloc[0]) if not result_df.empty else conn.execute(f"""
+        SELECT COUNT(DISTINCT sender_account_id) FROM transactions
+        WHERE timestamp >= TIMESTAMP '{recent_start.isoformat()}'
           AND timestamp <= TIMESTAMP '{as_of.isoformat()}'
           {account_filter}
-        ORDER BY timestamp
-        """
-    ).df()
+    """).fetchone()[0]
 
-    if df.empty:
-        return {"flagged_accounts": [], "accounts_scanned": 0, "note": "No transactions in window."}
-
-    df["timestamp"] = pd.to_datetime(df["timestamp"])
-    df["date"]      = df["timestamp"].dt.date
-
-    # ── 4. Compute per-account velocities ─────────────────────────────────────
-    recent_cutoff = recent_start.date()
-    hist_cutoff   = hist_start.date()
-
-    recent_df = df[df["timestamp"] >= recent_start]
-    hist_df   = df[df["timestamp"] <  recent_start]
-
-    # Recent: txns/day in the recent window
-    recent_stats = (
-        recent_df.groupby("account_id")
-        .agg(
-            txn_count_recent=("amount", "count"),
-            total_volume_recent=("amount", "sum"),
-        )
-        .reset_index()
-    )
-    recent_stats["current_velocity"] = recent_stats["txn_count_recent"] / max(args.window_days, 1)
-
-    # Historical: txns/day in the baseline window (before recent)
-    hist_baseline_days = baseline_days - args.window_days
-    hist_stats = (
-        hist_df.groupby("account_id")
-        .agg(txn_count_hist=("amount", "count"))
-        .reset_index()
-    )
-    hist_stats["baseline_velocity"] = hist_stats["txn_count_hist"] / max(hist_baseline_days, 1)
-
-    # ── 5. Merge and compute spike ratio ──────────────────────────────────────
-    merged = recent_stats.merge(hist_stats, on="account_id", how="left").fillna(0)
-    merged["spike_ratio"] = merged.apply(
-        lambda r: (
-            r["current_velocity"] / r["baseline_velocity"]
-            if r["baseline_velocity"] > 0
-            else (r["current_velocity"] / 1.0)   # no history → treat as spike if high abs
-        ),
-        axis=1,
-    )
-
-    # Filter to spikes: must meet ratio OR absolute threshold
-    threshold = args.spike_ratio
-    spiked = merged[
-        (merged["spike_ratio"] >= threshold) |
-        (merged["current_velocity"] >= _MIN_ABS_VELOCITY)
-    ].copy()
-
-    if spiked.empty:
+    if result_df.empty:
         return {
-            "flagged_accounts": [],
-            "accounts_scanned": int(df["account_id"].nunique()),
+            "flagged_accounts":      [],
+            "accounts_scanned":      accounts_scanned,
             "spike_ratio_threshold": threshold,
-            "window_days": args.window_days,
-            "baseline_days": baseline_days,
+            "window_days":           args.window_days,
+            "baseline_days":         baseline_days,
+            "as_of":                 str(as_of.date()),
         }
 
-    # ── 6. Determine spike start date ─────────────────────────────────────────
-    # For each account: first date in recent window where daily count > baseline_velocity
-    spike_dates: dict[str, str] = {}
-    for account_id in spiked["account_id"]:
-        acct_recent = recent_df[recent_df["account_id"] == account_id]
-        daily = acct_recent.groupby("date")["amount"].count()
-        if not daily.empty:
-            spike_dates[account_id] = str(daily.index[0])
-        else:
-            spike_dates[account_id] = str(recent_start.date())
-
-    spiked["spike_date"] = spiked["account_id"].map(spike_dates)
-
-    # ── 7. Risk classification ────────────────────────────────────────────────
-    def _classify(row) -> tuple[str, str]:
-        if row["spike_ratio"] >= threshold * 2 or row["current_velocity"] >= _MIN_ABS_VELOCITY * 2:
-            return "high", "report"
-        return "medium", "review"
-
-    spiked[["risk_level", "escalation"]] = spiked.apply(
-        lambda r: pd.Series(_classify(r)), axis=1
-    )
-
-    # ── 8. Sort and truncate ──────────────────────────────────────────────────
-    spiked = spiked.sort_values("spike_ratio", ascending=False).head(args.top_n)
-
+    # ── 4. Risk classification ────────────────────────────────────────────────
     flagged = []
-    for _, row in spiked.iterrows():
+    for _, row in result_df.iterrows():
+        is_high = (row["spike_ratio"] >= threshold * 2) or (row["current_velocity"] >= _MIN_ABS_VELOCITY * 2)
         flagged.append({
-            "account_id":              str(row["account_id"]),
+            "account_id":               str(row["account_id"]),
             "current_velocity_per_day": round(float(row["current_velocity"]), 3),
             "baseline_velocity_per_day": round(float(row["baseline_velocity"]), 3),
-            "spike_ratio":             round(float(row["spike_ratio"]), 2),
-            "spike_date":              str(row["spike_date"]),
-            "txn_count_recent":        int(row["txn_count_recent"]),
-            "total_volume_recent_usd": round(float(row["total_volume_recent"]), 2),
-            "risk_level":              row["risk_level"],
-            "escalation":              row["escalation"],
+            "spike_ratio":              round(float(row["spike_ratio"]), 2),
+            "spike_date":               str(row["spike_date"]),
+            "txn_count_recent":         int(row["txn_count_recent"]),
+            "total_volume_recent_usd":  round(float(row["total_volume_recent"]), 2),
+            "risk_level":               "high" if is_high else "medium",
+            "escalation":               "report" if is_high else "review",
         })
 
     return {
-        "flagged_accounts":        flagged,
-        "accounts_scanned":        int(df["account_id"].nunique()),
-        "spike_ratio_threshold":   threshold,
-        "window_days":             args.window_days,
-        "baseline_days":           baseline_days,
-        "as_of":                   str(as_of),
+        "flagged_accounts":      flagged,
+        "accounts_scanned":      accounts_scanned,
+        "spike_ratio_threshold": threshold,
+        "window_days":           args.window_days,
+        "baseline_days":         baseline_days,
+        "as_of":                 str(as_of.date()),
     }

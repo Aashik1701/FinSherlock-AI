@@ -5,17 +5,19 @@ Reads the original HI-Small_Trans.csv training data, applies analyst
 feedback overrides (TP/FP labels), and retrains the model.
 
 Usage:
-    python scripts/retrain_with_feedback.py
+    python scripts/retrain_with_feedback.py [--feedback-json <path>]
 
 Called by POST /feedback/retrain endpoint. Also runnable standalone.
+When called from the endpoint, feedback is passed via --feedback-json
+to avoid DuckDB lock contention from the subprocess.
 """
 
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
-import duckdb
 import joblib
 import numpy as np
 import pandas as pd
@@ -26,7 +28,6 @@ ROOT    = Path(__file__).parent.parent
 CSV     = ROOT / "data/raw/HI-Small_Trans.csv"
 OUT_DIR = ROOT / "data/models"
 OUT     = OUT_DIR / "xgb_baseline.joblib"
-DB_PATH = ROOT / "data/finsherlock.duckdb"
 
 SEED = 42
 _ENTROPY_BINS = 10
@@ -59,11 +60,31 @@ def precision_at_k(y_true: np.ndarray, probs: np.ndarray, ks=(50, 100, 500)) -> 
     return out
 
 
-def _load_feedback_overrides() -> dict[str, bool]:
+def _load_feedback_overrides(feedback_json: str | None = None) -> dict[str, bool]:
     """
     Load analyst feedback and return {account_id: label} overrides.
-    Only accounts with explicit feedback are included.
+    Supports two modes:
+      1. --feedback-json <path>  (preferred — avoids DuckDB lock contention)
+      2. DuckDB connection       (fallback for standalone use)
     """
+    if feedback_json:
+        path = Path(feedback_json)
+        if path.exists():
+            rows = json.loads(path.read_text())
+            overrides: dict[str, bool] = {}
+            for entry in rows:
+                overrides[entry["account_id"]] = entry["label"]
+            if overrides:
+                tp = sum(1 for v in overrides.values() if v)
+                fp = sum(1 for v in overrides.values() if not v)
+                print(f"  Loaded {len(overrides)} feedback overrides from JSON ({tp} TP, {fp} FP)")
+            else:
+                print("  No analyst feedback found — training on original labels only.")
+            return overrides
+
+    # Fallback: connect to DuckDB directly (standalone use)
+    import duckdb
+    DB_PATH = ROOT / "data/finsherlock.duckdb"
     if not DB_PATH.exists():
         print("  No DuckDB found — running without feedback overrides.")
         return {}
@@ -83,7 +104,6 @@ def _load_feedback_overrides() -> dict[str, bool]:
         print("  No analyst feedback found — training on original labels only.")
         return {}
 
-    # Latest feedback per account wins
     overrides = {}
     for account_id, label in rows:
         overrides[account_id] = bool(label)
@@ -94,14 +114,14 @@ def _load_feedback_overrides() -> dict[str, bool]:
     return overrides
 
 
-def main() -> None:
+def main(feedback_json: str | None = None) -> None:
     print(f"Loading {CSV} ...")
     df = pd.read_csv(CSV, parse_dates=["Timestamp"])
     n_launder_orig = int(df["Is Laundering"].sum())
     print(f"  {len(df):,} rows  |  {n_launder_orig:,} labeled laundering")
 
     # ── Apply analyst feedback overrides ──────────────────────────────────────
-    overrides = _load_feedback_overrides()
+    overrides = _load_feedback_overrides(feedback_json=feedback_json)
     if overrides:
         # Map sender_account_id column (named "Account" in the CSV)
         mask = df["Account"].isin(overrides)
@@ -263,4 +283,7 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    feedback_json = None
+    if len(sys.argv) > 1 and sys.argv[1] == "--feedback-json" and len(sys.argv) > 2:
+        feedback_json = sys.argv[2]
+    main(feedback_json=feedback_json)

@@ -134,6 +134,26 @@ def detect_structuring(args: DetectStructuringArgs) -> dict:
         """
     ).df()
 
+    # Compute total_txn_count per account for hub-account context
+    total_txn_df: pd.DataFrame = conn.execute(
+        f"""
+        SELECT sender_account_id AS account_id,
+               COUNT(*)          AS total_txn_count,
+               SUM(amount)       AS total_volume
+        FROM transactions
+        WHERE timestamp >= TIMESTAMP '{window_start.isoformat()}'
+          AND timestamp <= TIMESTAMP '{as_of.isoformat()}'
+          {account_filter}
+        GROUP BY sender_account_id
+        """
+    ).df()
+
+    # Volume percentile across all accounts in the window
+    vol_array = total_txn_df["total_volume"].values.astype(float)
+    vol_ranks = pd.Series(vol_array).rank(pct=True).to_dict()
+    txn_ranks = pd.Series(total_txn_df["total_txn_count"].values).rank(pct=True).to_dict()
+    total_lookup = dict(zip(total_txn_df["account_id"], total_txn_df["total_txn_count"]))
+
     flagged_accounts: list[dict] = []
     for acct_id, grp in df.groupby("account_id"):
         txns = [
@@ -146,11 +166,16 @@ def detect_structuring(args: DetectStructuringArgs) -> dict:
             }
             for _, row in grp.iterrows()
         ]
+        acct_total_txns = total_lookup.get(str(acct_id), 0)
+        acct_total_vol  = float(grp["amount"].sum())
         flagged_accounts.append({
             "account_id":             str(acct_id),
             "near_threshold_txn_count": len(txns),
+            "total_txn_count":        acct_total_txns,
+            "volume_percentile":       round(vol_ranks.get(acct_id, 0) * 100, 1),
+            "txn_count_percentile":    round(txn_ranks.get(acct_id, 0) * 100, 1),
             "transactions":            txns,
-            "total_amount_structured": round(float(grp["amount"].sum()), 2),
+            "total_amount_structured": round(acct_total_vol, 2),
             "date_range": {
                 "first": str(grp["timestamp"].min()),
                 "last":  str(grp["timestamp"].max()),

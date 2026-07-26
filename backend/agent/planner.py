@@ -431,7 +431,7 @@ def deterministic_fallback_plan(query: str) -> dict:
             "target_pattern": "velocity_spike",
             "plan": [
                 {"tool": "run_eda",                "args": {}},
-                {"tool": "detect_velocity_spikes", "args": {"window_days": 7, "baseline_days": 90}},
+                {"tool": "detect_velocity_spikes", "args": {"window_days": window_days, "baseline_days": 365}},
                 {"tool": "ml_risk_score",          "args": {"window_days": window_days, "top_n": 50}},
                 {"tool": "classify_risk",          "args": {"ml_output": None}},
                 {"tool": "explain_flag",           "args": {"classify_output": None, "target_pattern": "velocity_spike"}},
@@ -448,7 +448,7 @@ def deterministic_fallback_plan(query: str) -> dict:
             {"tool": "engineer_features",      "args": {"window_days": window_days, "persist": False}},
             {"tool": "detect_anomalies",       "args": {"window_days": window_days}},
             {"tool": "detect_mule_rings",      "args": {"window_days": window_days, "top_n": 10}},
-            {"tool": "detect_velocity_spikes", "args": {"window_days": 7, "baseline_days": 90}},
+            {"tool": "detect_velocity_spikes", "args": {"window_days": window_days, "baseline_days": 365}},
             {"tool": "detect_cycles",          "args": {"window_days": window_days, "min_length": 2, "max_length": 6}},
             {"tool": "compute_pagerank",       "args": {"window_days": window_days, "top_n": 20}},
             {"tool": "ml_risk_score",          "args": {"window_days": window_days, "top_n": 50}},

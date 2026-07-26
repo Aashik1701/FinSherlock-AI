@@ -120,18 +120,24 @@ class MLRiskScoreArgs(BaseModel):
         description="Return only the top-N highest-probability accounts.",
     )
     include_shap: bool = Field(
-        default=True,
-        description="Include SHAP explanations for top risky transaction per account.",
+        default=False,
+        description=(
+            "Include SHAP explanations for the top risky transaction per account. "
+            "Expensive — only enable for single-entity queries. Use the shap_explain "
+            "tool for dedicated per-account SHAP analysis."
+        ),
     )
 
 
-def _compute_shap_explanation(account_id: str, df: pd.DataFrame, explainer) -> Optional[dict]:
-    """Compute SHAP explanation for the highest-risk transaction of an account."""
+def _compute_shap_explanation(account_id: str, acct_df: pd.DataFrame, explainer) -> Optional[dict]:
+    """Compute SHAP explanation for the highest-risk transaction of an account.
+
+    acct_df must be pre-filtered to rows for this account only.
+    """
     try:
-        acct_df = df[df["sender_account_id"] == account_id]
         if acct_df.empty:
             return None
-        
+
         # Get the highest-risk transaction
         top_idx = acct_df["ml_prob"].idxmax()
         top_row = acct_df.loc[[top_idx], _feat_cols].values
@@ -195,25 +201,53 @@ def ml_risk_score(args: MLRiskScoreArgs) -> dict:
 
     con = get_connection()
 
-    # ── Pull raw transactions from the window ──────────────────────────────────
+    # ── Pull raw transactions from the window, with degree features from DuckDB ──
     if args.account_ids:
         placeholders = ", ".join(f"'{aid}'" for aid in args.account_ids)
         where = f"AND (sender_account_id IN ({placeholders}) OR receiver_account_id IN ({placeholders}))"
     else:
         where = ""
 
+    # Degrees computed in SQL via CTEs — avoids loading all rows into pandas
+    # just to call groupby().nunique() in Python.
     query = f"""
+        WITH window_txns AS (
+            SELECT
+                transaction_id,
+                timestamp,
+                sender_account_id,
+                receiver_account_id,
+                amount,
+                channel
+            FROM transactions
+            WHERE timestamp >= (SELECT MAX(timestamp) FROM transactions) - INTERVAL {args.window_days} DAY
+            {where}
+        ),
+        out_degrees AS (
+            SELECT sender_account_id,
+                   COUNT(DISTINCT receiver_account_id) AS sender_out_degree
+            FROM window_txns
+            GROUP BY sender_account_id
+        ),
+        in_degrees AS (
+            SELECT receiver_account_id,
+                   COUNT(DISTINCT sender_account_id) AS receiver_in_degree
+            FROM window_txns
+            GROUP BY receiver_account_id
+        )
         SELECT
-            transaction_id,
-            timestamp,
-            sender_account_id,
-            receiver_account_id,
-            amount,
-            channel
-        FROM transactions
-        WHERE timestamp >= (SELECT MAX(timestamp) FROM transactions) - INTERVAL {args.window_days} DAY
-        {where}
-        ORDER BY timestamp
+            t.transaction_id,
+            t.timestamp,
+            t.sender_account_id,
+            t.receiver_account_id,
+            t.amount,
+            t.channel,
+            COALESCE(od.sender_out_degree, 0) AS sender_out_degree,
+            COALESCE(id.receiver_in_degree, 0) AS receiver_in_degree
+        FROM window_txns t
+        LEFT JOIN out_degrees od ON t.sender_account_id = od.sender_account_id
+        LEFT JOIN in_degrees  id ON t.receiver_account_id = id.receiver_account_id
+        ORDER BY t.timestamp
     """
     df = con.execute(query).df()
 
@@ -224,26 +258,20 @@ def ml_risk_score(args: MLRiskScoreArgs) -> dict:
             "message":         "No transactions found in the specified window.",
         }
 
-    # ── Compute degree features from the window ────────────────────────────────
-    out_deg = df.groupby("sender_account_id")["receiver_account_id"].nunique()
-    in_deg  = df.groupby("receiver_account_id")["sender_account_id"].nunique()
-
-    df["sender_out_degree"]  = df["sender_account_id"].map(out_deg).fillna(0.0)
-    df["receiver_in_degree"] = df["receiver_account_id"].map(in_deg).fillna(0.0)
-    df["log_amount_paid"]    = np.log1p(df["amount"].astype("float64"))
+    df["log_amount_paid"] = np.log1p(df["amount"].astype("float64"))
 
     # ── Amount entropy per sender account ─────────────────────────────────────
-    def _shannon_entropy(values):
-        if len(values) == 0:
-            return 0.0
+    def _shannon_entropy(values: np.ndarray) -> float:
         counts, _ = np.histogram(values, bins=_ENTROPY_BINS)
         probs = counts / counts.sum()
         probs = probs[probs > 0]
         return float(-np.sum(probs * np.log2(probs)))
 
-    acct_entropy = df.groupby("sender_account_id")["amount"].apply(
-        lambda s: _shannon_entropy(s.values.astype(float))
-    )
+    # Dict comprehension is faster than groupby().apply(lambda) for custom functions
+    acct_entropy = {
+        acct: _shannon_entropy(grp["amount"].values.astype(float))
+        for acct, grp in df.groupby("sender_account_id", sort=False)
+    }
     df["amount_entropy"] = df["sender_account_id"].map(acct_entropy).fillna(0.0)
 
     # ── Time-of-day / day-of-week one-hot ─────────────────────────────────────
@@ -302,11 +330,17 @@ def ml_risk_score(args: MLRiskScoreArgs) -> dict:
     # ── SHAP explainer (lazy init) ─────────────────────────────────────────────
     explainer = _get_shap_explainer() if args.include_shap else None
 
+    # Pre-index by account_id so the results loop is O(1) per account
+    # instead of O(N) linear scan through df for each of the top_n accounts.
+    df_by_acct: dict[str, pd.DataFrame] = {
+        acct: grp for acct, grp in df.groupby("sender_account_id", sort=False)
+    }
+
     results = []
     for row in agg.itertuples(index=False):
-        # Per-account highest-risk transaction
-        top_txn = df[df["sender_account_id"] == row.account_id].nlargest(1, "ml_prob")
-        
+        acct_df = df_by_acct.get(row.account_id, pd.DataFrame())
+        top_txn = acct_df.nlargest(1, "ml_prob") if not acct_df.empty else acct_df
+
         result = {
             "account_id":      row.account_id,
             "ml_probability":  round(float(row.max_prob), 4),
@@ -319,13 +353,12 @@ def ml_risk_score(args: MLRiskScoreArgs) -> dict:
                 "ml_prob":        round(float(top_txn["ml_prob"].iloc[0]), 4),
             } if not top_txn.empty else None,
         }
-        
-        # Add SHAP explanation if available
+
         if explainer and not top_txn.empty:
-            shap_exp = _compute_shap_explanation(row.account_id, df, explainer)
+            shap_exp = _compute_shap_explanation(row.account_id, acct_df, explainer)
             if shap_exp:
                 result["shap_explanation"] = shap_exp
-        
+
         results.append(result)
 
     flagged_count = sum(1 for r in results if r["ml_flagged"])

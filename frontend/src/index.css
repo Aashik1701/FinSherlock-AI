@@ -3,45 +3,83 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --bg-page: #f8f9fb;
+    --bg-card: #ffffff;
+    --bg-card-hover: #fafafa;
+    --border-card: #e5e7eb;
+    --text-primary: #111827;
+    --text-secondary: #6b7280;
+    --text-muted: #9ca3af;
+
+    --red: #ef4444;
+    --red-bg: #fef2f2;
+    --red-border: #fecaca;
+    --orange: #f97316;
+    --orange-bg: #fff7ed;
+    --orange-border: #fed7aa;
+    --amber: #f59e0b;
+    --amber-bg: #fffbeb;
+    --amber-border: #fde68a;
+    --emerald: #10b981;
+    --emerald-bg: #ecfdf5;
+    --emerald-border: #a7f3d0;
+    --teal: #14b8a6;
+    --teal-bg: #f0fdfa;
+    --teal-border: #99f6e4;
+    --accent: #f97316;
+    --accent-hover: #ea580c;
+    --indigo: #6366f1;
+    --indigo-bg: #eef2ff;
+    --indigo-border: #c7d2fe;
+  }
+
   body {
     font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-    background-color: #0b0f19;
-    color: #f1f5f9;
+    background-color: var(--bg-page);
+    color: var(--text-primary);
+    -webkit-font-smoothing: antialiased;
   }
-  
-  code, pre, .font-mono {
-    font-family: 'JetBrains Mono', monospace;
+
+  code, pre, .font-mono, .mono {
+    font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
   }
 }
 
-/* Custom sleek scrollbars */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
-  background: #090d16;
-}
-::-webkit-scrollbar-thumb {
-  background: #1e293b;
-  border-radius: 4px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #334155;
+@layer components {
+  .card {
+    @apply bg-white rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.06)] border border-gray-200/80 p-6;
+  }
+  .eyebrow {
+    @apply text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em];
+  }
+  .badge-red {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold
+           bg-red-50 text-red-700 border border-red-200;
+  }
+  .badge-amber {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold
+           bg-amber-50 text-amber-700 border border-amber-200;
+  }
+  .badge-emerald {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold
+           bg-emerald-50 text-emerald-700 border border-emerald-200;
+  }
+  .badge-teal {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold
+           bg-teal-50 text-teal-700 border border-teal-200;
+  }
+  .kpi-card {
+    @apply bg-white rounded-2xl border border-gray-200/80 px-5 py-4 space-y-1 min-w-0 shadow-[0_1px_3px_rgba(0,0,0,0.04)];
+  }
+  .kpi-icon {
+    @apply w-8 h-8 rounded-xl flex items-center justify-center shrink-0;
+  }
 }
 
-/* Custom glow and micro-interactions */
-.glass-panel {
-  background: rgba(15, 23, 42, 0.65);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(30, 41, 59, 0.7);
-}
-
-.glass-panel-hover {
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-}
-.glass-panel-hover:hover {
-  border-color: rgba(51, 65, 85, 0.9);
-  transform: translateY(-1px);
+@layer utilities {
+  .dot-grid {
+    background-image: radial-gradient(circle, #e5e7eb 0.5px, transparent 0.5px);
+    background-size: 20px 20px;
+  }
 }

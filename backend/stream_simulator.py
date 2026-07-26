@@ -164,26 +164,38 @@ class StreamSimulator:
             return
 
         # Read and sort CSV chronologically
+        # NOTE: raw CSV has duplicate "Account" columns (sender at index 2, receiver at
+        # index 4). DictReader silently drops the first occurrence, so we use csv.reader
+        # with column indices to correctly separate sender and receiver.
         logger.info("Loading CSV for stream simulation...")
         rows = []
         with open(CSV_PATH, "r") as f:
-            reader = csv.DictReader(f)
+            reader = csv.reader(f)
+            headers = next(reader)  # skip header
+            # Map known column indices (0-indexed)
+            IDX_TIMESTAMP = 0
+            IDX_SENDER_ACCT = 2    # first "Account" column
+            IDX_RECEIVER_ACCT = 4  # second "Account" column
+            IDX_AMOUNT_PAID = 7
+            IDX_PAYMENT_CURRENCY = 8
+            IDX_PAYMENT_FORMAT = 9
+            IDX_IS_LAUNDERING = 10
             for row in reader:
                 try:
-                    ts = row["Timestamp"]
-                    amount = float(row.get("Amount Paid", 0) or 0)
+                    ts = row[IDX_TIMESTAMP]
+                    amount = float(row[IDX_AMOUNT_PAID] or 0)
                     rows.append({
                         "timestamp": ts,
-                        "sender": row.get("Account", ""),
-                        "receiver": row.get("Account.1", row.get("Account", "")),
+                        "sender": row[IDX_SENDER_ACCT],
+                        "receiver": row[IDX_RECEIVER_ACCT],
                         "amount": amount,
-                        "currency": row.get("Payment Currency", "USD"),
-                        "tx_type": row.get("Payment Format", "transfer"),
-                        "country": row.get("From Bank Country", ""),
-                        "channel": row.get("Payment Format", ""),
-                        "is_laundering": row.get("Is Laundering", "0") == "1",
+                        "currency": row[IDX_PAYMENT_CURRENCY],
+                        "tx_type": row[IDX_PAYMENT_FORMAT],
+                        "country": "",
+                        "channel": row[IDX_PAYMENT_FORMAT],
+                        "is_laundering": row[IDX_IS_LAUNDERING] == "1",
                     })
-                except (KeyError, ValueError):
+                except (IndexError, ValueError):
                     continue
 
         # Sort chronologically
@@ -285,6 +297,8 @@ class StreamSimulator:
         Deduplicates via self._fired_alerts so each distinct pattern fires at most once:
         - structuring: keyed by (account_id, 'structuring', near_threshold_count)
         - large_transaction: keyed by (account_id, 'large_transaction', txn_timestamp)
+        - smurfing: keyed by (account_id, 'smurfing', fan_out_count)  (sender-side)
+                    keyed by (receiver_account_id, 'smurfing_fanin', fan_in_count) (receiver-side)
         """
         alerts = []
         for account_id in account_ids:
@@ -338,6 +352,32 @@ class StreamSimulator:
                             "message": f"Large transaction: ${result[0]:,.2f}",
                             "amount": result[0],
                             "timestamp": str(result[1]),
+                        })
+            except Exception:
+                pass
+
+            # ── Smurfing: sender fan-out (many distinct receivers) ────────────
+            try:
+                result = conn.execute(
+                    """SELECT COUNT(DISTINCT receiver_account_id) as fan_out,
+                              SUM(amount) as total_spread
+                       FROM transactions
+                       WHERE sender_account_id = ?
+                         AND timestamp >= (SELECT MAX(timestamp) FROM transactions) - INTERVAL '7 days'""",
+                    [account_id],
+                ).fetchone()
+                if result and result[0] >= 3:
+                    dedup_key = (account_id, "smurfing", result[0])
+                    if dedup_key not in self._fired_alerts:
+                        self._fired_alerts.add(dedup_key)
+                        alerts.append({
+                            "type": "alert",
+                            "alert_type": "smurfing",
+                            "severity": "high" if result[0] >= 10 else "medium",
+                            "account_id": account_id,
+                            "message": f"Smurfing (fan-out): sent to {result[0]} distinct receivers, total ${result[1]:,.2f}",
+                            "fan_out_count": result[0],
+                            "total_spread": result[1],
                         })
             except Exception:
                 pass

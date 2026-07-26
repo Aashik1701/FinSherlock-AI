@@ -511,18 +511,51 @@ def trigger_retrain() -> dict:
     Trigger model retraining with analyst feedback labels.
     Runs synchronously (fine for demo). In production, this would be a
     background task via Celery/RQ.
+
+    Feedback overrides are queried via the main process's DuckDB connection
+    and passed to the subprocess as a temp JSON file to avoid lock contention
+    (DuckDB allows only one writer at a time on the file).
     """
+    import json as _json
     import subprocess
     import sys as _sys
+    import tempfile
+    from pathlib import Path
 
     script = str(Path(__file__).parent / "scripts" / "retrain_with_feedback.py")
+
+    # Query feedback overrides here (main process already has the DB lock)
+    feedback_rows = []
     try:
-        result = subprocess.run(
-            [_sys.executable, script],
-            capture_output=True,
-            text=True,
-            timeout=120,
-        )
+        conn = _get_conn()
+        rows = conn.execute(
+            "SELECT account_id, label FROM analyst_feedback ORDER BY created_at"
+        ).fetchall()
+        feedback_rows = [{"account_id": r[0], "label": bool(r[1])} for r in rows]
+    except Exception:
+        feedback_rows = []
+
+    try:
+        if feedback_rows:
+            with tempfile.NamedTemporaryFile(
+                mode="w", suffix=".json", delete=False, prefix="feedback_"
+            ) as f:
+                _json.dump(feedback_rows, f)
+                feedback_path = f.name
+            result = subprocess.run(
+                [_sys.executable, script, "--feedback-json", feedback_path],
+                capture_output=True,
+                text=True,
+                timeout=120,
+            )
+            Path(feedback_path).unlink(missing_ok=True)
+        else:
+            result = subprocess.run(
+                [_sys.executable, script],
+                capture_output=True,
+                text=True,
+                timeout=120,
+            )
         if result.returncode != 0:
             raise HTTPException(
                 status_code=500,
@@ -553,6 +586,132 @@ def _feedback_row_to_dict(row) -> dict:
         "created_by", "created_at",
     ]
     return {col: row[i] for i, col in enumerate(cols)}
+
+
+# ---------------------------------------------------------------------------
+# Dashboard summary endpoint — real aggregates from DuckDB
+# ---------------------------------------------------------------------------
+
+
+@app.get("/dashboard/summary", tags=["dashboard"])
+def dashboard_summary(window_days: int = 30) -> dict:
+    """
+    Real dashboard aggregates computed from the current DuckDB data.
+    Returns at-risk capital, flagged accounts by risk tier / typology,
+    SAR-filing-required count, and total accounts/transactions analyzed.
+    """
+    conn = _get_conn()
+
+    # Total transactions and accounts
+    total_txns = conn.execute("SELECT COUNT(*) FROM transactions").fetchone()[0]
+    total_accounts = conn.execute(
+        "SELECT COUNT(DISTINCT sender_account_id) FROM transactions"
+    ).fetchone()[0]
+
+    # Flagged accounts — we approximate via detect_anomalies output
+    # stored in account_features (txn_count, near_threshold_count, velocity)
+    flagged_count = conn.execute(
+        """SELECT COUNT(DISTINCT account_id) FROM account_features
+           WHERE (near_threshold_count IS NOT NULL AND near_threshold_count >= 2)
+              OR (velocity IS NOT NULL AND velocity > 10)"""
+    ).fetchone()[0]
+
+    # At-risk capital: sum of amounts near threshold (structuring candidates)
+    at_risk = conn.execute(
+        """SELECT COALESCE(SUM(amount), 0) FROM transactions
+           WHERE amount >= 9000 AND amount < 10000
+             AND timestamp >= (SELECT MAX(timestamp) FROM transactions) - INTERVAL '30 days'"""
+    ).fetchone()[0]
+
+    # SAR-required count: accounts with 4+ near-threshold txns
+    sar_required = conn.execute(
+        """SELECT COUNT(*) FROM (
+               SELECT sender_account_id, COUNT(*) as cnt
+               FROM transactions
+               WHERE amount >= 9000 AND amount < 10000
+               GROUP BY sender_account_id
+               HAVING cnt >= 4
+           )"""
+    ).fetchone()[0]
+
+    # Typology distribution (approximate from features / raw data)
+    structuring_count = conn.execute(
+        """SELECT COUNT(DISTINCT sender_account_id) FROM transactions
+           WHERE amount >= 9000 AND amount < 10000"""
+    ).fetchone()[0]
+
+    smurfing_count = conn.execute(
+        """SELECT COUNT(*) FROM (
+               SELECT sender_account_id, COUNT(DISTINCT receiver_account_id) as fan_out
+               FROM transactions GROUP BY sender_account_id HAVING fan_out >= 3
+           )"""
+    ).fetchone()[0]
+
+    # Accounts analyzed (present in account_features — coverage metric)
+    accounts_analyzed = conn.execute(
+        "SELECT COUNT(DISTINCT account_id) FROM account_features"
+    ).fetchone()[0]
+
+    # Risk tier counts from account_features
+    high_risk = conn.execute(
+        """SELECT COUNT(DISTINCT account_id) FROM account_features
+           WHERE near_threshold_count >= 4 OR velocity > 50"""
+    ).fetchone()[0]
+    medium_risk = conn.execute(
+        """SELECT COUNT(DISTINCT account_id) FROM account_features
+           WHERE (near_threshold_count >= 2 AND near_threshold_count < 4)
+              OR (velocity > 10 AND velocity <= 50)"""
+    ).fetchone()[0]
+    low_risk = conn.execute(
+        """SELECT COUNT(DISTINCT account_id) FROM account_features
+           WHERE near_threshold_count < 2 AND velocity <= 10"""
+    ).fetchone()[0]
+
+    # Velocity-count — accounts with elevated velocity
+    velocity_count = conn.execute(
+        """SELECT COUNT(DISTINCT account_id) FROM account_features
+           WHERE velocity IS NOT NULL AND velocity > 10"""
+    ).fetchone()[0]
+
+    # Layering proxy — accounts that appear as both sender and receiver (multi-hop behavior)
+    layering_count = conn.execute(
+        """SELECT COUNT(DISTINCT a.account_id) FROM (
+               SELECT sender_account_id AS account_id FROM transactions
+               INTERSECT
+               SELECT receiver_account_id AS account_id FROM transactions
+           ) a"""
+    ).fetchone()[0]
+
+    # Mule-ring proxy — accounts with both high near-threshold activity AND velocity
+    mule_rings_count = conn.execute(
+        """SELECT COUNT(DISTINCT account_id) FROM account_features
+           WHERE near_threshold_count >= 3 AND velocity > 15"""
+    ).fetchone()[0]
+
+    coverage_pct = round((accounts_analyzed / max(total_accounts, 1)) * 100, 1) if accounts_analyzed > 0 else 0.0
+
+    return {
+        "total_transactions": total_txns,
+        "total_accounts": total_accounts,
+        "accounts_analyzed": accounts_analyzed,
+        "coverage_pct": coverage_pct,
+        "flagged_accounts": flagged_count,
+        "at_risk_capital": at_risk,
+        "sar_filing_required": sar_required,
+        "risk_tiers": {
+            "high": high_risk,
+            "medium": medium_risk,
+            "low": low_risk,
+        },
+        "typology_counts": {
+            "structuring": structuring_count,
+            "smurfing": smurfing_count,
+            "velocity": velocity_count,
+            "layering": layering_count,
+            "mule_rings": mule_rings_count,
+        },
+        "window_days": window_days,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -648,6 +807,75 @@ async def stream_events():
 # ---------------------------------------------------------------------------
 # Live Attack Simulator Endpoint — Injects real-time synthetic attack into DuckDB
 # ---------------------------------------------------------------------------
+
+@app.post("/stream/inject-attack", tags=["stream"])
+async def stream_inject_attack() -> dict:
+    """
+    Inject a synthetic, clearly-labeled suspicious transaction pattern into
+    the live stream. Transactions are sent to stream subscribers as SSE events
+    with "synthetic": true so the frontend can distinguish them from real
+    replayed data.
+    """
+    import uuid as _uuid
+    from datetime import datetime as _dt
+
+    if not _stream_sim.status.running:
+        return {"error": "Stream is not running. Start the stream first."}
+
+    target_acct = f"SYNTH_ATTACK_{_uuid.uuid4().hex[:4].upper()}"
+    now_str = _dt.now().strftime("%Y/%m/%d %H:%M")
+
+    txns = [
+        {"sender": target_acct, "receiver": "SYNTH_RECEIVER_01", "amount": 9600.0, "timestamp": now_str, "currency": "USD", "tx_type": "cash_deposit", "channel": "branch", "is_laundering": True},
+        {"sender": target_acct, "receiver": "SYNTH_RECEIVER_01", "amount": 9750.0, "timestamp": now_str, "currency": "USD", "tx_type": "cash_deposit", "channel": "branch", "is_laundering": True},
+        {"sender": target_acct, "receiver": "SYNTH_RECEIVER_01", "amount": 9820.0, "timestamp": now_str, "currency": "USD", "tx_type": "cash_deposit", "channel": "branch", "is_laundering": True},
+    ]
+
+    from stream_simulator import StreamEvent
+
+    # Insert into DuckDB so investigations can find them
+    import data.db as _db
+    _conn = _db.get_connection()
+    for i, txn in enumerate(txns):
+        _conn.execute(
+            """INSERT OR IGNORE INTO transactions
+               (transaction_id, timestamp, sender_account_id, receiver_account_id,
+                amount, currency, transaction_type, country, channel, is_laundering)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            [
+                f"SYNTH-INJECT-{_dt.now().strftime('%H%M%S')}-{i}",
+                txn["timestamp"],
+                txn["sender"],
+                txn["receiver"],
+                txn["amount"],
+                txn["currency"],
+                txn["tx_type"],
+                "__SYNTH__",
+                txn["channel"],
+                txn["is_laundering"],
+            ],
+        )
+
+    for txn in txns:
+        await _stream_sim._broadcast(StreamEvent("transaction", {
+            "type": "transaction", "synthetic": True, **txn,
+        }))
+
+    await _stream_sim._broadcast(StreamEvent("alert", {
+        "type": "alert", "synthetic": True, "alert_type": "structuring", "severity": "high",
+        "account_id": target_acct,
+        "message": f"⚠ SYNTHETIC ATTACK: Structuring pattern detected — 3 near-threshold deposits totalling $29,170.00 from {target_acct}",
+        "near_threshold_count": 3, "total_amount": 29170.0,
+    }))
+
+    return {
+        "status": "injected",
+        "synthetic": True,
+        "target_account": target_acct,
+        "injected_transactions": 3,
+        "message": "Synthetic structuring attack injected into live stream. Three near-threshold cash deposits persisted in DuckDB.",
+    }
+
 
 @app.post("/simulate-attack", tags=["simulation"])
 def simulate_attack() -> dict:
