@@ -88,8 +88,10 @@ Structuring query:
   → classify_risk(structuring_output=null) → explain_flag(classify_output=null, target_pattern="structuring")
 
 Single-entity / customer query:
-  engineer_features(account_ids=[id]) → detect_anomalies(account_ids=[id])
-  → classify_risk(anomaly_output=null, account_id=id) → explain_flag(classify_output=null, account_id=id)
+  engineer_features(account_ids=[id]) → detect_structuring(account_ids=[id]) → detect_anomalies(account_ids=[id])
+  → ml_risk_score(account_ids=[id]) → classify_risk(structuring_output=null, anomaly_output=null, ml_output=null, account_id=id)
+  → explain_flag(classify_output=null, account_id=id)
+  NOTE: detect_anomalies is unreliable with n=1 but still runs — classify_risk weights structuring and ml signals instead.
 
 Smurfing / layering / generic anomaly query:
   run_eda → engineer_features → detect_anomalies
@@ -298,6 +300,10 @@ def deterministic_fallback_plan(query: str) -> dict:
                     "args": {"account_ids": [entity_id], "window_days": window_days, "persist": False},
                 },
                 {
+                    "tool": "detect_structuring",
+                    "args": {"account_ids": [entity_id], "window_days": window_days},
+                },
+                {
                     "tool": "detect_anomalies",
                     "args": {"account_ids": [entity_id], "window_days": window_days},
                 },
@@ -307,7 +313,12 @@ def deterministic_fallback_plan(query: str) -> dict:
                 },
                 {
                     "tool": "classify_risk",
-                    "args": {"anomaly_output": None, "ml_output": None, "account_id": entity_id},
+                    "args": {
+                        "structuring_output": None,
+                        "anomaly_output": None,
+                        "ml_output": None,
+                        "account_id": entity_id,
+                    },
                 },
                 {
                     "tool": "shap_explain",

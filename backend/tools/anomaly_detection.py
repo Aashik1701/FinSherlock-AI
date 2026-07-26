@@ -302,8 +302,29 @@ def detect_anomalies(args: DetectAnomaliesArgs) -> dict:
     n_samples = len(feat_df)
     if n_samples < _MIN_IF_SAMPLES:
         logger.warning(
-            "detect_anomalies: only %d samples — IsolationForest results unreliable", n_samples
+            "detect_anomalies: only %d sample(s) — insufficient population for IsolationForest; returning neutral result",
+            n_samples,
         )
+        return {
+            "accounts_analyzed": n_samples,
+            "window_days":       args.window_days,
+            "contamination":     args.contamination,
+            "flagged_accounts":  [],
+            "all_scores": [
+                {
+                    "account_id":   str(feat_df.iloc[i]["account_id"]),
+                    "anomaly_score": None,
+                    "is_anomalous": False,
+                }
+                for i in range(n_samples)
+            ],
+            "total_flagged": 0,
+            "note": (
+                f"Insufficient population for statistical anomaly detection "
+                f"({n_samples} account(s) in window; minimum {_MIN_IF_SAMPLES} required). "
+                "Use detect_structuring or ml_risk_score for single-account analysis."
+            ),
+        }
 
     X = feat_df[_FEATURE_COLS].fillna(0.0).values.astype(float)
 
