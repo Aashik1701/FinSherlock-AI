@@ -62,6 +62,52 @@ def engineer_features(args: FeatureEngineeringArgs) -> dict:
 
     window_start = as_of - pd.Timedelta(days=args.window_days)
 
+    # ── Cache read — all-accounts path ────────────────────────────────────────
+    # When no account_ids filter and no custom date_to are set, serve from the
+    # pre-computed account_features table (written by scripts/precompute_features.py
+    # at load time).  This avoids the 60-80s pandas groupby on millions of rows.
+    # Single-account queries and custom date_to queries still recompute live.
+    if args.account_ids is None and not args.date_to:
+        as_of_str = str(as_of)[:19]
+        cached_count = conn.execute(
+            f"SELECT COUNT(*) FROM account_features "
+            f"WHERE window_days = {args.window_days} AND computed_at = TIMESTAMP '{as_of_str}'",
+        ).fetchone()[0]
+
+        if cached_count > 0:
+            cached_df = conn.execute(
+                f"""
+                SELECT account_id, window_days, computed_at,
+                       txn_count, total_volume, avg_amount, std_amount,
+                       velocity, max_single_amount, amount_deviation_pct,
+                       near_threshold_count
+                FROM account_features
+                WHERE window_days = {args.window_days}
+                  AND computed_at = TIMESTAMP '{as_of_str}'
+                ORDER BY near_threshold_count DESC, ABS(amount_deviation_pct) DESC
+                """
+            ).df()
+            records = cached_df.to_dict("records")
+            # Normalise types that DuckDB returns as non-JSON-serialisable objects
+            for r in records:
+                r["computed_at"] = str(r["computed_at"])
+                for k in ("txn_count", "near_threshold_count"):
+                    if r[k] is not None:
+                        r[k] = int(r[k])
+                for k in ("total_volume", "avg_amount", "std_amount", "velocity",
+                          "max_single_amount", "amount_deviation_pct"):
+                    if r[k] is not None:
+                        r[k] = round(float(r[k]), 4)
+            return {
+                "as_of":              str(as_of),
+                "window_days":        args.window_days,
+                "window_start":       str(window_start),
+                "accounts_processed": len(records),
+                "persisted":          True,
+                "from_cache":         True,
+                "features":           records,
+            }
+
     # --- Pull raw transactions within the window ---
     account_filter = ""
     if args.account_ids:

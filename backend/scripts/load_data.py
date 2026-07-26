@@ -22,9 +22,12 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s  %(message)s")
 
 def main():
     parser = argparse.ArgumentParser(description="Load IBM AML CSV into DuckDB")
-    parser.add_argument("--csv",   default="data/raw/transactions.csv")
+    parser.add_argument("--csv",   default="data/raw/HI-Small_Trans.csv",
+                        help="Path to IBM AML CSV (default: data/raw/HI-Small_Trans.csv)")
     parser.add_argument("--limit", type=int, default=0,
                         help="Max rows to load (0 = all)")
+    parser.add_argument("--skip-precompute", action="store_true",
+                        help="Skip the feature pre-computation step after loading")
     args = parser.parse_args()
 
     csv_path = Path(args.csv)
@@ -40,6 +43,12 @@ def main():
         print("\nWarnings:")
         for w in result["warnings"]:
             print(f"  ⚠  {w}")
+
+    if not args.skip_precompute:
+        print()
+        print("Running feature pre-computation (makes live queries instant)...")
+        from scripts.precompute_features import precompute
+        precompute(window_days_list=[7, 30, 60, 90])
 
 
 if __name__ == "__main__":
