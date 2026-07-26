@@ -57,11 +57,13 @@ Respond with ONLY a valid JSON object — no markdown, no prose, no code fences.
 Use exactly this structure:
 
 {{
-  "intent": "<broad_exploration | pattern_scan | single_entity_lookup>",
+  "intent": "<broad_exploration | pattern_scan | single_entity_lookup | pure_aggregation>",
   "filters": {{
     "date_from":   null,
     "date_to":     null,
     "account_ids": null,
+    "country":     null,
+    "segment":     null,
     "window_days": 30
   }},
   "target_pattern": "<null | structuring | smurfing | layering>",
@@ -76,6 +78,9 @@ Set structuring_output, anomaly_output, and classify_output to null in their arg
 the orchestrator fills them automatically at runtime.
 
 Standard chain patterns (use these exactly):
+
+Pure aggregation / count query (e.g., "how many customers made N+ transactions under $10,000"):
+  run_eda → detect_structuring  (DO NOT run ML, IsolationForest, SHAP, or graph tools for simple count queries!)
 
 Structuring query:
   run_eda → engineer_features → detect_structuring
@@ -93,7 +98,7 @@ Broad exploration:
   run_eda → engineer_features → detect_anomalies
   → classify_risk(anomaly_output=null) → explain_flag(classify_output=null)
 
-Extract date windows from "last N days" → set window_days.
+Extract date windows from "last N days" → set window_days. Extract country ("in Country X" / "US", "UK") → set country filter. Extract segment ("corporate", "retail") → set segment filter.
 """
 
 
@@ -219,12 +224,46 @@ def deterministic_fallback_plan(query: str) -> dict:
     if date_until:
         date_to = date_until.group(1)
 
+    # --- Extract optional country filter ---
+    country: str | None = None
+    country_match = re.search(r"\b(?:in|from|country)\s+([A-Za-z]{2,15})\b", q)
+    if country_match and country_match.group(1).lower() not in {"the", "last", "recent", "customer", "account"}:
+        country = country_match.group(1).upper()
+
+    # --- Extract optional segment filter ---
+    segment: str | None = None
+    segment_match = re.search(r"\b(retail|corporate|private[\s-]banking|commercial)\b", q)
+    if segment_match:
+        segment = segment_match.group(1).lower()
+
     base_filters: dict[str, Any] = {
         "date_from":   date_from,
         "date_to":     date_to,
         "account_ids": None,
+        "country":     country,
+        "segment":     segment,
         "window_days": window_days,
     }
+
+    # 0. Pure Aggregation query path ———————————————————————————————————————————
+    # Matches: "which customers made 10+ transactions under $10,000",
+    #          "count of transactions below 10k", "how many transactions"
+    if re.search(r"(\d+\+\s+transactions|how\s+many\s+customers|count\s+of\s+txns|transactions\s+under\s+\$?\d+)", q):
+        min_txns = 2
+        count_match = re.search(r"(\d+)\+\s+transactions", q)
+        if count_match:
+            min_txns = int(count_match.group(1))
+
+        return {
+            "intent": "pure_aggregation",
+            "filters": base_filters,
+            "target_pattern": "structuring",
+            "plan": [
+                {"tool": "run_eda", "args": {}},
+                {"tool": "detect_structuring", "args": {"window_days": window_days, "threshold": 10000.0}},
+            ],
+            "planner_source": "deterministic",
+        }
 
 # 1. Single-entity lookup —————————————————————————————————————————————————
     # Matches: "customer 1098", "account ACC_A", "explain ACC_A",

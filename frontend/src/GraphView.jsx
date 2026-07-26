@@ -105,7 +105,20 @@ export default function GraphView({ smurfingData, layeringData, accountId }) {
   }, [smurfingData, layeringData, accountId])
 
   const paintNode = useCallback((node, ctx, globalScale) => {
-    const r = 5
+    const isCenter = node.nodeType === 'center' || node.nodeType === 'origin'
+    const r = isCenter ? 7 : 5
+
+    // Glowing halo for Mule Controller hub node
+    if (isCenter) {
+      ctx.beginPath()
+      ctx.arc(node.x, node.y, r + 4, 0, 2 * Math.PI)
+      ctx.fillStyle = 'rgba(234, 179, 8, 0.25)'
+      ctx.fill()
+      ctx.strokeStyle = 'rgba(234, 179, 8, 0.8)'
+      ctx.lineWidth = 1
+      ctx.stroke()
+    }
+
     ctx.beginPath()
     ctx.arc(node.x, node.y, r, 0, 2 * Math.PI)
     ctx.fillStyle = NODE_COLOR[node.nodeType] ?? '#60a5fa'
@@ -113,10 +126,10 @@ export default function GraphView({ smurfingData, layeringData, accountId }) {
 
     const fontSize = Math.max(10 / globalScale, 1.5)
     ctx.font = `${fontSize}px monospace`
-    ctx.fillStyle = '#9ca3af'
+    ctx.fillStyle = isCenter ? '#fef08a' : '#9ca3af'
     ctx.textAlign = 'center'
     ctx.textBaseline = 'top'
-    const label = node.id.length > 14 ? node.id.slice(0, 13) + '…' : node.id
+    const label = (isCenter ? '★ HUB: ' : '') + (node.id.length > 12 ? node.id.slice(0, 11) + '…' : node.id)
     ctx.fillText(label, node.x, node.y + r + 2)
   }, [])
 

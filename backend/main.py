@@ -642,6 +642,48 @@ async def stream_events():
     )
 
 
+# ---------------------------------------------------------------------------
+# Live Attack Simulator Endpoint — Injects real-time synthetic attack into DuckDB
+# ---------------------------------------------------------------------------
+
+@app.post("/simulate-attack", tags=["simulation"])
+def simulate_attack() -> dict:
+    """
+    Injects a live synthetic Structuring attack into DuckDB transactions table:
+    3 near-threshold cash deposits ($9,600, $9,750, $9,820) for sender 'ACC_ATTACK_SIM_99'.
+    """
+    from data.db import get_connection
+    import uuid
+    from datetime import datetime
+
+    conn = get_connection()
+    target_acct = f"ACC_ATTACK_{uuid.uuid4().hex[:4].upper()}"
+    now = datetime.now()
+
+    txns = [
+        (str(uuid.uuid4()), now, target_acct, "ACC_RECEIVER_99", 9600.0, "USD", "cash_deposit", "US", "branch", True),
+        (str(uuid.uuid4()), now, target_acct, "ACC_RECEIVER_99", 9750.0, "USD", "cash_deposit", "US", "branch", True),
+        (str(uuid.uuid4()), now, target_acct, "ACC_RECEIVER_99", 9820.0, "USD", "cash_deposit", "US", "branch", True),
+    ]
+
+    conn.executemany(
+        """
+        INSERT INTO transactions (
+            transaction_id, timestamp, sender_account_id, receiver_account_id,
+            amount, currency, transaction_type, country, channel, is_laundering
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        txns,
+    )
+
+    return {
+        "status": "success",
+        "target_account": target_acct,
+        "injected_transactions": 3,
+        "query": f"Investigate account {target_acct} for structuring",
+    }
+
+
 # Register one POST /tools/{name} per entry in TOOL_REGISTRY at startup
 for _name, _entry in TOOL_REGISTRY.items():
     _handler = _make_tool_handler(_name)

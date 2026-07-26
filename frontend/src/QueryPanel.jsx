@@ -160,6 +160,19 @@ export default function QueryPanel({ onSubmit, loading }) {
         >
           🛡 Benign Test ($5,000 - No Flag)
         </button>
+        <button
+          onClick={async () => {
+            try {
+              const res = await fetch('http://localhost:8000/simulate-attack', { method: 'POST' })
+              const data = await res.json()
+              if (data.query) run(data.query)
+            } catch (e) { console.error("Simulation failed", e) }
+          }}
+          className="px-3 py-1 rounded-lg border border-rose-800/80 bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 font-mono transition-all font-semibold shadow-sm animate-pulse"
+          title="Inject live synthetic attack into DuckDB and trigger pipeline"
+        >
+          ⚡ Inject Live Attack
+        </button>
       </div>
 
       {/* Typology cards */}
