@@ -3,6 +3,7 @@ import QueryPanel    from './QueryPanel'
 import ExecutionPlan from './ExecutionPlan'
 import FindingCard   from './FindingCard'
 import Watchlist     from './Watchlist'
+import Cases         from './Cases'
 
 const API_BASE = 'http://localhost:8000'
 
@@ -366,6 +367,16 @@ export default function App() {
             >
               Watchlist
             </button>
+            <button
+              onClick={() => setActiveTab('cases')}
+              className={`px-3 py-1.5 rounded-md text-[11px] font-semibold transition-all ${
+                activeTab === 'cases'
+                  ? 'bg-slate-800 text-slate-100 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-400'
+              }`}
+            >
+              Cases
+            </button>
           </nav>
 
           <div className="flex items-center gap-5 shrink-0">
@@ -445,6 +456,10 @@ export default function App() {
 
         {activeTab === 'watchlist' && (
           <Watchlist />
+        )}
+
+        {activeTab === 'cases' && (
+          <Cases />
         )}
       </main>
 

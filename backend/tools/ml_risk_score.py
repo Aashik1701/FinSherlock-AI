@@ -65,6 +65,24 @@ except Exception as exc:
     logger.error("Failed to load XGBoost model: %s", exc)
 
 
+def reload_model():
+    """Hot-reload the XGBoost model from disk (called after retrain)."""
+    global _model, _feat_cols, _fmt_cols, _hod_cols, _dow_cols, _threshold, _MODEL_READY
+    try:
+        payload     = joblib.load(_MODEL_PATH)
+        _model      = payload["model"]
+        _feat_cols  = payload["feature_cols"]
+        _fmt_cols   = payload["fmt_cols"]
+        _hod_cols   = payload.get("hod_cols", [])
+        _dow_cols   = payload.get("dow_cols", [])
+        _threshold  = payload["threshold"]
+        _MODEL_READY = True
+        logger.info("Model hot-reloaded from %s (threshold=%.4f)", _MODEL_PATH, _threshold)
+    except Exception as exc:
+        logger.error("Failed to hot-reload model: %s", exc)
+        _MODEL_READY = False
+
+
 # ── Tool definition ────────────────────────────────────────────────────────────
 
 class MLRiskScoreArgs(BaseModel):

@@ -93,6 +93,37 @@ def mem_conn():
             PRIMARY KEY (account_id, window_days, computed_at)
         )
     """)
+    conn.execute("""
+        CREATE TABLE cases (
+            case_id         VARCHAR PRIMARY KEY,
+            account_id      VARCHAR NOT NULL,
+            status          VARCHAR NOT NULL DEFAULT 'open',
+            query_text      TEXT,
+            risk_score      DOUBLE,
+            findings_json   JSON,
+            resolution      VARCHAR,
+            created_by      VARCHAR DEFAULT 'analyst',
+            assigned_to     VARCHAR,
+            notes           TEXT,
+            created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE analyst_feedback (
+            feedback_id     VARCHAR PRIMARY KEY,
+            account_id      VARCHAR NOT NULL,
+            case_id         VARCHAR,
+            label           BOOLEAN NOT NULL,
+            risk_score      DOUBLE,
+            model_version   VARCHAR,
+            query_text      TEXT,
+            transaction_ids JSON,
+            notes           TEXT,
+            created_by      VARCHAR DEFAULT 'analyst',
+            created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
     df = pd.DataFrame(_SYNTHETIC_TRANSACTIONS, columns=_COLUMNS)
     df["timestamp"] = pd.to_datetime(df["timestamp"])
     conn.execute("INSERT INTO transactions SELECT * FROM df")

@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import RiskGauge from './RiskGauge'
 import GraphView from './GraphView'
 import { openSAR } from './sarExport'
@@ -168,9 +169,11 @@ function LayeringDetail({ layerPath }) {
 
 // ─── Main card ─────────────────────────────────────────────────────────────
 
-export default function FindingCard({ exp, structuringData, smurfingData, layeringData, classifyData }) {
+export default function FindingCard({ exp, structuringData, smurfingData, layeringData, classifyData, onFeedback }) {
   const risk = RISK[exp.risk_level] ?? RISK.low
   const escCls = ESC[exp.escalation] ?? 'bg-slate-800 text-slate-400 border-slate-700'
+  const [feedbackState, setFeedbackState] = useState(null) // null | 'tp' | 'fp' | 'submitting' | 'done'
+  const [error, setError] = useState(null)
 
   const structEntry   = structuringData?.flagged_accounts?.find(a => a.account_id === exp.account_id)
   const smurfEntry    = smurfingData?.flagged_accounts?.find(a => a.account_id === exp.account_id)
@@ -186,6 +189,29 @@ export default function FindingCard({ exp, structuringData, smurfingData, layeri
       layerPath:   layerPath     ?? null,
       filingDate:  new Date().toISOString().split('T')[0],
     })
+  }
+
+  const handleFeedback = async (label) => {
+    setFeedbackState('submitting')
+    setError(null)
+    try {
+      const res = await fetch('http://localhost:8000/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          account_id: exp.account_id,
+          label,
+          risk_score: (exp.risk_score ?? 0) / 100,
+          query_text: exp.explanation,
+        }),
+      })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      setFeedbackState(label ? 'tp' : 'fp')
+      if (onFeedback) onFeedback(exp.account_id, label)
+    } catch (err) {
+      setError(err.message)
+      setFeedbackState(null)
+    }
   }
 
   const hasDetails = structEntry || smurfEntry || layerPath
@@ -211,6 +237,45 @@ export default function FindingCard({ exp, structuringData, smurfingData, layeri
           <span className={`px-3.5 py-1 rounded-full border text-[10px] font-bold uppercase tracking-widest ${escCls}`}>
             {exp.escalation}
           </span>
+
+          {/* Analyst feedback buttons */}
+          {feedbackState !== 'tp' && feedbackState !== 'fp' ? (
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => handleFeedback(true)}
+                disabled={feedbackState === 'submitting'}
+                title="Mark as True Positive — confirmed suspicious"
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-red-900/60 bg-red-950/30 hover:bg-red-950/60 text-[10px] font-bold text-red-400 hover:text-red-300 transition-all disabled:opacity-40"
+              >
+                <svg viewBox="0 0 12 12" className="w-2.5 h-2.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                  <path d="M1 6.5l3 3 7-7" />
+                </svg>
+                TP
+              </button>
+              <button
+                onClick={() => handleFeedback(false)}
+                disabled={feedbackState === 'submitting'}
+                title="Mark as False Positive — not suspicious"
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-emerald-900/60 bg-emerald-950/30 hover:bg-emerald-950/60 text-[10px] font-bold text-emerald-400 hover:text-emerald-300 transition-all disabled:opacity-40"
+              >
+                <svg viewBox="0 0 12 12" className="w-2.5 h-2.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                  <path d="M2 2l8 8M10 2l-8 8" />
+                </svg>
+                FP
+              </button>
+            </div>
+          ) : (
+            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full border text-[10px] font-bold ${
+              feedbackState === 'tp'
+                ? 'border-red-800 bg-red-950/50 text-red-300'
+                : 'border-emerald-800 bg-emerald-950/50 text-emerald-300'
+            }`}>
+              {feedbackState === 'tp' ? '✓ True Positive' : '✓ False Positive'}
+            </span>
+          )}
+
+          {error && <span className="text-[10px] text-red-500">{error}</span>}
+
           <button
             onClick={handleExportSAR}
             title="Export SAR draft as HTML (printable to PDF)"

@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
+import json
 import logging
-from typing import Any
+from typing import Any, Optional
+from uuid import uuid4
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+import data.db as db_module
 
 load_dotenv()  # reads backend/.env if present; safe no-op when file is absent
 
@@ -193,6 +197,318 @@ def watchlist_temporal(
     except Exception as exc:
         logger.exception("Temporal analysis failed")
         raise HTTPException(status_code=500, detail=str(exc))
+
+
+# ---------------------------------------------------------------------------
+# Case Management endpoints
+# ---------------------------------------------------------------------------
+
+_VALID_STATUSES = ("open", "under_review", "escalated", "closed")
+_VALID_TRANSITIONS = {
+    "open":       ("under_review", "closed"),
+    "under_review": ("escalated", "closed"),
+    "escalated":  ("closed",),
+    "closed":     (),
+}
+_VALID_RESOLUTIONS = ("true_positive", "false_positive")
+
+
+class CaseCreateRequest(BaseModel):
+    account_id: str
+    query_text: str = ""
+    risk_score: Optional[float] = None
+    findings_json: Optional[dict] = None
+    created_by: str = "analyst"
+    notes: str = ""
+
+
+class CaseUpdateRequest(BaseModel):
+    status: Optional[str] = None
+    resolution: Optional[str] = None
+    notes: Optional[str] = None
+    assigned_to: Optional[str] = None
+
+
+def _get_conn():
+    return db_module.get_connection()
+
+
+@app.post("/cases", tags=["cases"], status_code=201)
+def create_case(request: CaseCreateRequest) -> dict:
+    """Create a new investigation case."""
+    case_id = f"CASE-{uuid4().hex[:12].upper()}"
+    conn = _get_conn()
+    conn.execute(
+        """INSERT INTO cases (case_id, account_id, query_text, risk_score, findings_json, created_by, notes)
+           VALUES (?, ?, ?, ?, ?, ?, ?)""",
+        [case_id, request.account_id, request.query_text,
+         request.risk_score, json.dumps(request.findings_json) if request.findings_json else None,
+         request.created_by, request.notes],
+    )
+    row = conn.execute("SELECT * FROM cases WHERE case_id = ?", [case_id]).fetchone()
+    return _case_row_to_dict(row)
+
+
+@app.get("/cases", tags=["cases"])
+def list_cases(
+    status: Optional[str] = Query(None, description="Filter by status"),
+    account_id: Optional[str] = Query(None, description="Filter by account"),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+) -> dict:
+    """List investigation cases with optional filters."""
+    conn = _get_conn()
+    where, params = [], []
+    if status:
+        where.append("status = ?")
+        params.append(status)
+    if account_id:
+        where.append("account_id = ?")
+        params.append(account_id)
+    where_clause = f"WHERE {' AND '.join(where)}" if where else ""
+
+    total = conn.execute(f"SELECT COUNT(*) FROM cases {where_clause}", params).fetchone()[0]
+    rows = conn.execute(
+        f"SELECT * FROM cases {where_clause} ORDER BY created_at DESC LIMIT ? OFFSET ?",
+        params + [limit, offset],
+    ).fetchall()
+    return {
+        "cases": [_case_row_to_dict(r) for r in rows],
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+    }
+
+
+@app.get("/cases/{case_id}", tags=["cases"])
+def get_case(case_id: str) -> dict:
+    """Get a single case by ID."""
+    conn = _get_conn()
+    row = conn.execute("SELECT * FROM cases WHERE case_id = ?", [case_id]).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail=f"Case {case_id} not found")
+    return _case_row_to_dict(row)
+
+
+@app.patch("/cases/{case_id}", tags=["cases"])
+def update_case(case_id: str, request: CaseUpdateRequest) -> dict:
+    """Update case status, resolution, notes, or assignment."""
+    conn = _get_conn()
+    row = conn.execute("SELECT * FROM cases WHERE case_id = ?", [case_id]).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail=f"Case {case_id} not found")
+
+    current = _case_row_to_dict(row)
+    updates, params = [], []
+
+    if request.status is not None:
+        if request.status not in _VALID_STATUSES:
+            raise HTTPException(400, f"Invalid status: {request.status}")
+        if request.status not in _VALID_TRANSITIONS.get(current["status"], ()):
+            raise HTTPException(
+                400,
+                f"Cannot transition from '{current['status']}' to '{request.status}'"
+            )
+        updates.append("status = ?")
+        params.append(request.status)
+
+    if request.resolution is not None:
+        if request.resolution not in _VALID_RESOLUTIONS:
+            raise HTTPException(400, f"Invalid resolution: {request.resolution}")
+        if current["status"] != "closed":
+            raise HTTPException(400, "Resolution can only be set on closed cases")
+        updates.append("resolution = ?")
+        params.append(request.resolution)
+
+    if request.notes is not None:
+        updates.append("notes = ?")
+        params.append(request.notes)
+
+    if request.assigned_to is not None:
+        updates.append("assigned_to = ?")
+        params.append(request.assigned_to)
+
+    if not updates:
+        return current
+
+    updates.append("updated_at = CURRENT_TIMESTAMP")
+    params.append(case_id)
+    conn.execute(f"UPDATE cases SET {', '.join(updates)} WHERE case_id = ?", params)
+    row = conn.execute("SELECT * FROM cases WHERE case_id = ?", [case_id]).fetchone()
+    return _case_row_to_dict(row)
+
+
+@app.delete("/cases/{case_id}", tags=["cases"])
+def delete_case(case_id: str) -> dict:
+    """Delete a case."""
+    conn = _get_conn()
+    row = conn.execute("SELECT * FROM cases WHERE case_id = ?", [case_id]).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail=f"Case {case_id} not found")
+    conn.execute("DELETE FROM cases WHERE case_id = ?", [case_id])
+    return {"deleted": case_id}
+
+
+def _case_row_to_dict(row) -> dict:
+    """Convert a DuckDB case row to a dict."""
+    if row is None:
+        return {}
+    cols = ["case_id", "account_id", "status", "query_text", "risk_score",
+            "findings_json", "resolution", "created_by", "assigned_to",
+            "notes", "created_at", "updated_at"]
+    return {col: row[i] for i, col in enumerate(cols)}
+
+
+# ---------------------------------------------------------------------------
+# Feedback endpoints (active learning)
+# ---------------------------------------------------------------------------
+
+_MODEL_VERSION = "v1"  # bumped on retrain
+
+
+class FeedbackCreateRequest(BaseModel):
+    account_id: str
+    case_id: Optional[str] = None
+    label: bool  # True = TP, False = FP
+    risk_score: Optional[float] = None
+    query_text: Optional[str] = None
+    transaction_ids: Optional[list] = None
+    notes: Optional[str] = None
+    created_by: str = "analyst"
+
+
+@app.post("/feedback", tags=["feedback"], status_code=201)
+def create_feedback(request: FeedbackCreateRequest) -> dict:
+    """Record an analyst TP/FP label for active learning."""
+    feedback_id = f"FB-{uuid4().hex[:12].upper()}"
+    conn = _get_conn()
+    conn.execute(
+        """INSERT INTO analyst_feedback
+           (feedback_id, account_id, case_id, label, risk_score, model_version,
+            query_text, transaction_ids, notes, created_by)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        [
+            feedback_id, request.account_id, request.case_id,
+            request.label, request.risk_score, _MODEL_VERSION,
+            request.query_text,
+            str(request.transaction_ids) if request.transaction_ids else None,
+            request.notes, request.created_by,
+        ],
+    )
+    # If linked to a case, auto-set the case resolution
+    if request.case_id:
+        resolution = "true_positive" if request.label else "false_positive"
+        conn.execute(
+            "UPDATE cases SET resolution = ?, status = 'closed', updated_at = CURRENT_TIMESTAMP WHERE case_id = ?",
+            [resolution, request.case_id],
+        )
+    row = conn.execute(
+        "SELECT * FROM analyst_feedback WHERE feedback_id = ?", [feedback_id]
+    ).fetchone()
+    return _feedback_row_to_dict(row)
+
+
+@app.get("/feedback", tags=["feedback"])
+def list_feedback(
+    account_id: Optional[str] = Query(None),
+    label: Optional[bool] = Query(None),
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+) -> dict:
+    """List analyst feedback records."""
+    conn = _get_conn()
+    where, params = [], []
+    if account_id:
+        where.append("account_id = ?")
+        params.append(account_id)
+    if label is not None:
+        where.append("label = ?")
+        params.append(label)
+    where_clause = f"WHERE {' AND '.join(where)}" if where else ""
+
+    total = conn.execute(
+        f"SELECT COUNT(*) FROM analyst_feedback {where_clause}", params
+    ).fetchone()[0]
+    rows = conn.execute(
+        f"SELECT * FROM analyst_feedback {where_clause} ORDER BY created_at DESC LIMIT ? OFFSET ?",
+        params + [limit, offset],
+    ).fetchall()
+    return {
+        "feedback": [_feedback_row_to_dict(r) for r in rows],
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+    }
+
+
+@app.get("/feedback/stats", tags=["feedback"])
+def feedback_stats() -> dict:
+    """Return feedback statistics for the dashboard."""
+    conn = _get_conn()
+    total = conn.execute("SELECT COUNT(*) FROM analyst_feedback").fetchone()[0]
+    tp = conn.execute("SELECT COUNT(*) FROM analyst_feedback WHERE label = TRUE").fetchone()[0]
+    fp = conn.execute("SELECT COUNT(*) FROM analyst_feedback WHERE label = FALSE").fetchone()[0]
+    latest = conn.execute(
+        "SELECT created_at FROM analyst_feedback ORDER BY created_at DESC LIMIT 1"
+    ).fetchone()
+    return {
+        "total": total,
+        "true_positives": tp,
+        "false_positives": fp,
+        "precision": round(tp / total, 4) if total > 0 else None,
+        "latest_feedback": latest[0] if latest else None,
+        "model_version": _MODEL_VERSION,
+    }
+
+
+@app.post("/feedback/retrain", tags=["feedback"])
+def trigger_retrain() -> dict:
+    """
+    Trigger model retraining with analyst feedback labels.
+    Runs synchronously (fine for demo). In production, this would be a
+    background task via Celery/RQ.
+    """
+    import subprocess
+    import sys as _sys
+
+    script = str(Path(__file__).parent / "scripts" / "retrain_with_feedback.py")
+    try:
+        result = subprocess.run(
+            [_sys.executable, script],
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        if result.returncode != 0:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Retrain failed:\n{result.stderr[-500:]}",
+            )
+        # Hot-reload the new model into the ml_risk_score module
+        import tools.ml_risk_score as ml_mod
+        ml_mod.reload_model()
+        return {
+            "status": "retrained",
+            "output": result.stdout[-2000:],
+            "model_version": _MODEL_VERSION,
+        }
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=500, detail="Retrain timed out (120s)")
+    except Exception as exc:
+        logger.exception("Retrain failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+def _feedback_row_to_dict(row) -> dict:
+    """Convert a DuckDB feedback row to a dict."""
+    if row is None:
+        return {}
+    cols = [
+        "feedback_id", "account_id", "case_id", "label", "risk_score",
+        "model_version", "query_text", "transaction_ids", "notes",
+        "created_by", "created_at",
+    ]
+    return {col: row[i] for i, col in enumerate(cols)}
 
 
 # Register one POST /tools/{name} per entry in TOOL_REGISTRY at startup
