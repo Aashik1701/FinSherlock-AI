@@ -1,6 +1,8 @@
+import { useState } from 'react'
 import { useState, useCallback } from 'react'
 import RiskGauge from './RiskGauge'
 import GraphView from './GraphView'
+import TimelineView from './TimelineView'
 import { openSAR } from './sarExport'
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
@@ -294,6 +296,8 @@ function SHAPPanel({ accountId, windowDays }) {
 
 // ─── Main card ─────────────────────────────────────────────────────────────
 
+export default function FindingCard({ exp, structuringData, smurfingData, layeringData, classifyData }) {
+  const [feedback, setFeedback] = useState(null) // 'confirmed' | 'false_positive'
 export default function FindingCard({ exp, structuringData, smurfingData, layeringData, classifyData, onFeedback }) {
   const risk = RISK[exp.risk_level] ?? RISK.low
   const escCls = ESC[exp.escalation] ?? 'bg-slate-800 text-slate-400 border-slate-700'
@@ -359,6 +363,34 @@ export default function FindingCard({ exp, structuringData, smurfingData, layeri
           </span>
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          {/* Feedback controls */}
+          {feedback ? (
+            <span className={`px-2.5 py-1 rounded text-[10px] font-mono border font-semibold ${
+              feedback === 'confirmed'
+                ? 'bg-red-950/60 text-red-300 border-red-800'
+                : 'bg-emerald-950/60 text-emerald-300 border-emerald-800'
+            }`}>
+              {feedback === 'confirmed' ? '✓ Confirmed Suspicious' : '✕ Tagged False Positive'}
+            </span>
+          ) : (
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setFeedback('confirmed')}
+                className="px-2 py-1 rounded border border-slate-800 bg-slate-900 hover:border-red-800 hover:text-red-300 text-[10px] text-slate-500 transition-colors font-mono"
+                title="Mark as confirmed suspicious pattern"
+              >
+                + Confirm
+              </button>
+              <button
+                onClick={() => setFeedback('false_positive')}
+                className="px-2 py-1 rounded border border-slate-800 bg-slate-900 hover:border-emerald-800 hover:text-emerald-300 text-[10px] text-slate-500 transition-colors font-mono"
+                title="Dismiss as false positive"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
+
           <span className={`px-3.5 py-1 rounded-full border text-[10px] font-bold uppercase tracking-widest ${escCls}`}>
             {exp.escalation}
           </span>
@@ -429,6 +461,15 @@ export default function FindingCard({ exp, structuringData, smurfingData, layeri
               </p>
             )}
             <p className="text-sm text-slate-200 leading-relaxed">{exp.explanation}</p>
+            {exp.counterfactual && (
+              <div className="bg-indigo-950/30 border border-indigo-900/40 rounded-xl p-3 flex items-start gap-2.5">
+                <span className="text-indigo-400 text-xs mt-0.5 font-bold shrink-0">↺</span>
+                <div className="space-y-0.5">
+                  <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider">Counterfactual Analysis</p>
+                  <p className="text-[11px] text-indigo-200/80 leading-relaxed">{exp.counterfactual}</p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -457,6 +498,13 @@ export default function FindingCard({ exp, structuringData, smurfingData, layeri
             {structEntry && <StructuringDetail entry={structEntry} />}
             {smurfEntry  && <SmurfingDetail entry={smurfEntry} />}
             {layerPath   && <LayeringDetail layerPath={layerPath} />}
+            
+            {/* Timeline */}
+            <TimelineView
+              structEntry={structEntry}
+              smurfEntry={smurfEntry}
+              layerPath={layerPath}
+            />
           </div>
         )}
 

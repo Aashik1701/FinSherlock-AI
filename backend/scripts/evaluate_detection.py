@@ -26,6 +26,7 @@ Patterns.txt key: (timestamp_str, sender_account, receiver_account, payment_form
 from __future__ import annotations
 
 import argparse
+import json as _json
 import sys
 from pathlib import Path
 
@@ -151,6 +152,30 @@ def smurfing_precision_recall(
     }
 
 
+def naive_baseline(df: pd.DataFrame, threshold: float = 10_000.0) -> dict:
+    """Naive baseline: flag every account with ANY transaction >= threshold."""
+    flagged_accts = set(df[df["Amount Paid"] >= threshold]["Account"].unique())
+    true_launder_accts = set(df[df["Is Laundering"] == 1]["Account"].unique())
+
+    tp = len(flagged_accts & true_launder_accts)
+    fp = len(flagged_accts - true_launder_accts)
+    fn = len(true_launder_accts - flagged_accts)
+
+    prec = tp / (tp + fp) if (tp + fp) else 0.0
+    rec  = tp / (tp + fn) if (tp + fn) else 0.0
+    f1   = 2 * prec * rec / (prec + rec) if (prec + rec) else 0.0
+
+    return {
+        "rule":      f"naive baseline (any txn >= ${threshold:,.0f})",
+        "flagged":   len(flagged_accts),
+        "true_launder_accounts": len(true_launder_accts),
+        "tp": tp, "fp": fp, "fn": fn,
+        "precision": round(prec, 4),
+        "recall":    round(rec, 4),
+        "f1":        round(f1, 4),
+    }
+
+
 def typology_breakdown(df: pd.DataFrame, key_to_typ: dict[tuple, str]) -> None:
     df = df.copy()
     df["typology"] = attach_typology(df, key_to_typ)
@@ -165,6 +190,117 @@ def typology_breakdown(df: pd.DataFrame, key_to_typ: dict[tuple, str]) -> None:
         print(f"    {typ:<40} {cnt:>8,}")
 
 
+def run_evaluation(
+    csv_path: Path | str,
+    patterns_path: Path | str | None = None,
+    limit: int | None = None,
+) -> dict:
+    """
+    Run full evaluation and return structured results dict.
+    Can be called programmatically from the backend /metrics endpoint.
+    """
+    csv_path = Path(csv_path)
+    if not csv_path.exists():
+        raise FileNotFoundError(f"CSV not found at {csv_path}")
+
+    df = pd.read_csv(csv_path, parse_dates=["Timestamp"], nrows=limit)
+    total_rows = len(df)
+    total_laundering = int(df["Is Laundering"].sum())
+
+    # Rule-based evaluations
+    results = {
+        "dataset": {
+            "total_rows": total_rows,
+            "labeled_laundering": total_laundering,
+            "laundering_rate_pct": round(total_laundering / total_rows * 100, 4) if total_rows else 0,
+        },
+        "rules": [],
+        "naive_baseline": naive_baseline(df),
+        "false_positive_reduction": {},
+    }
+
+    structuring = structuring_precision_recall(df)
+    smurfing_3  = smurfing_precision_recall(df, fan_threshold=3)
+    smurfing_5  = smurfing_precision_recall(df, fan_threshold=5)
+
+    results["rules"] = [structuring, smurfing_3, smurfing_5]
+
+    # False-positive reduction vs naive baseline
+    nb = results["naive_baseline"]
+    if nb["flagged"] > 0:
+        for rule_result in results["rules"]:
+            if rule_result["tp"] > 0:  # only compare rules that caught something
+                reduction_pct = round(
+                    (1 - rule_result["flagged"] / nb["flagged"]) * 100, 1
+                )
+                results["false_positive_reduction"][rule_result["rule"]] = {
+                    "naive_flags": nb["flagged"],
+                    "smart_flags": rule_result["flagged"],
+                    "reduction_pct": reduction_pct,
+                    "same_recall": rule_result["recall"] >= nb["recall"],
+                }
+
+    # XGBoost model evaluation
+    model_path = ROOT / "data/models/xgb_baseline.joblib"
+    if model_path.exists():
+        import joblib
+        from sklearn.metrics import average_precision_score, precision_recall_fscore_support
+
+        payload = joblib.load(model_path)
+        xgb    = payload["model"]
+        fcols  = payload["feature_cols"]
+        fmt_c  = payload["fmt_cols"]
+        hod_c  = payload.get("hod_cols", [])
+        dow_c  = payload.get("dow_cols", [])
+        thr    = payload["threshold"]
+
+        train_out_deg = pd.Series(payload.get("train_out_deg", {}))
+        train_in_deg  = pd.Series(payload.get("train_in_deg", {}))
+        train_amount_entropy = pd.Series(payload.get("train_amount_entropy", {}))
+
+        df_eval = df.copy()
+        df_eval["sender_out_degree"]    = df_eval["Account"].map(train_out_deg).fillna(0.0)
+        df_eval["receiver_in_degree"]   = df_eval["Account.1"].map(train_in_deg).fillna(0.0)
+        df_eval["is_currency_mismatch"] = (
+            df_eval["Payment Currency"].astype(str) != df_eval["Receiving Currency"].astype(str)
+        ).astype(int)
+        df_eval["log_amount_paid"] = np.log1p(df_eval["Amount Paid"].astype("float64"))
+        df_eval["amount_entropy"]  = df_eval["Account"].map(train_amount_entropy).fillna(0.0)
+
+        hod_d = pd.get_dummies(df_eval["Timestamp"].dt.hour, prefix="hod", dtype=int)
+        hod_d = hod_d.reindex(columns=hod_c, fill_value=0)
+        for col in hod_c:
+            df_eval[col] = hod_d[col].values
+
+        dow_d = pd.get_dummies(df_eval["Timestamp"].dt.dayofweek, prefix="dow", dtype=int)
+        dow_d = dow_d.reindex(columns=dow_c, fill_value=0)
+        for col in dow_c:
+            df_eval[col] = dow_d[col].values
+
+        fmt_d = pd.get_dummies(df_eval["Payment Format"], prefix="fmt", dtype=int)
+        fmt_d = fmt_d.reindex(columns=fmt_c, fill_value=0)
+        for col in fmt_c:
+            df_eval[col] = fmt_d[col].values
+
+        X = df_eval[fcols].values
+        y = df_eval["Is Laundering"].values.astype(int)
+        probs = xgb.predict_proba(X)[:, 1]
+        preds = (probs >= thr).astype(int)
+
+        pr_auc = average_precision_score(y, probs)
+        p, r, f, _ = precision_recall_fscore_support(y, preds, average="binary", zero_division=0)
+
+        results["xgboost"] = {
+            "threshold": round(thr, 4),
+            "pr_auc": round(pr_auc, 5),
+            "precision": round(float(p), 4),
+            "recall": round(float(r), 4),
+            "f1": round(float(f), 4),
+        }
+
+    return results
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description="Evaluate detection tools against IBM AML labels.")
     ap.add_argument("--patterns", default=str(ROOT / "data/raw/HI-Small_Patterns.txt"),
@@ -173,6 +309,8 @@ def main() -> None:
                     help="Path to the transactions CSV")
     ap.add_argument("--limit",    type=int, default=None,
                     help="Row limit (None = all rows)")
+    ap.add_argument("--json",     action="store_true",
+                    help="Output results as JSON (for /metrics endpoint)")
     args = ap.parse_args()
 
     csv_path      = Path(args.csv)
@@ -182,6 +320,13 @@ def main() -> None:
         print(f"ERROR: CSV not found at {csv_path}")
         sys.exit(1)
 
+    # ── JSON mode — for programmatic access from /metrics endpoint ──────────
+    if args.json:
+        results = run_evaluation(csv_path, patterns_path, args.limit)
+        print(_json.dumps(results, indent=2))
+        return
+
+    # ── Human-readable mode ────────────────────────────────────────────────────
     print(f"Loading {csv_path} ...")
     df = pd.read_csv(csv_path, parse_dates=["Timestamp"], nrows=args.limit)
     print(f"  {len(df):,} rows  |  {int(df['Is Laundering'].sum()):,} labeled laundering")
@@ -200,6 +345,17 @@ def main() -> None:
         print(f"\nPatterns.txt not found at {patterns_path} — skipping typology breakdown.")
         key_to_typ = {}
 
+    # ── Naive baseline ─────────────────────────────────────────────────────────
+    nb = naive_baseline(df)
+    print(f"\n{sep}")
+    print("  NAIVE BASELINE (flag any account with txn >= $10,000)")
+    print(sep)
+    print(f"\n  Flagged:   {nb['flagged']:,}  "
+          f"(true launder accounts: {nb['true_launder_accounts']:,})")
+    print(f"  TP={nb['tp']}  FP={nb['fp']}  FN={nb['fn']}")
+    print(f"  Precision: {nb['precision']:.4f}  "
+          f"Recall: {nb['recall']:.4f}  F1: {nb['f1']:.4f}")
+
     # ── Rule-based detection evaluation ────────────────────────────────────────
     print(f"\n{sep}")
     print("  RULE-BASED DETECTION vs. IS_LAUNDERING LABEL")
@@ -216,6 +372,11 @@ def main() -> None:
         print(f"  TP={result['tp']}  FP={result['fp']}  FN={result['fn']}")
         print(f"  Precision: {result['precision']:.4f}  "
               f"Recall: {result['recall']:.4f}  F1: {result['f1']:.4f}")
+        # False-positive reduction vs naive baseline
+        if nb["flagged"] > 0 and result["tp"] > 0:
+            reduction = (1 - result["flagged"] / nb["flagged"]) * 100
+            print(f"  ▸ False-positive reduction vs naive: {reduction:.1f}%  "
+                  f"({nb['flagged']:,} → {result['flagged']:,} flags)")
 
     print(f"\n{sep}")
 
