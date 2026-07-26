@@ -12,8 +12,7 @@ import ThreatRadar     from './ThreatRadar'
 import VelocitySurgeTable from './VelocitySurgeTable'
 import { useTheme } from './ThemeContext'
 import CopilotWidget  from './CopilotWidget'
-
-const API_BASE = 'http://localhost:8000'
+import { API_BASE } from './api'
 
 function ThemeToggle() {
   const { isDark, toggleTheme } = useTheme()
@@ -66,7 +65,7 @@ function HealthDot() {
   return (
     <span className="flex items-center gap-1.5">
       <span className={`w-2 h-2 rounded-full ${ok ? 'bg-emerald-500' : 'bg-red-500'}`} />
-      <span className="text-[10px] text-gray-400 font-mono">localhost:8000</span>
+      <span className="text-[10px] text-gray-400 font-mono">{API_BASE.replace(/^https?:\/\//, '')}</span>
     </span>
   )
 }
@@ -165,7 +164,7 @@ export default function App() {
       const msg = String(e.message ?? e)
       setError(
         msg.toLowerCase().includes('fetch') || msg.toLowerCase().includes('network')
-          ? 'Cannot reach the backend at http://localhost:8000. Is uvicorn running?'
+            ? `Cannot reach the backend at ${API_BASE}. Check the Railway service URL.`
           : msg
       )
     } finally {

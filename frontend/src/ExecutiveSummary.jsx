@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { BarChart3, AlertTriangle, FileText, Clock, Printer } from 'lucide-react'
-
-const API_BASE = 'http://localhost:8000'
+import { API_BASE } from './api'
 
 function KpiCard({ label, value, sub, accent = 'text-[var(--text-primary)]', loading: isLoading, icon, iconBg }) {
   return (

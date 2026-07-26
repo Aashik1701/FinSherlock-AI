@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { API_BASE } from './api'
 
 const QUICK_PROMPTS = [
   "What is the BSA CTR Structuring rule?",
@@ -39,7 +40,7 @@ export default function CopilotWidget() {
     setLoading(true)
 
     try {
-      const res = await fetch('http://localhost:8000/copilot', {
+      const res = await fetch(`${API_BASE}/copilot`, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ message: text }),
@@ -59,7 +60,7 @@ export default function CopilotWidget() {
         ...prev,
         {
           sender: 'bot',
-          text: 'Backend copilot endpoint unavailable. Ensure uvicorn server is running on localhost:8000.',
+          text: `Backend copilot endpoint unavailable. Ensure the Railway backend is reachable at ${API_BASE}.`,
           ts: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
           isError: true,
         },

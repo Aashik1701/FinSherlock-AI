@@ -1,4 +1,5 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
+import { API_BASE } from './api'
 
 const TYPOLOGIES = [
   { key: 'structuring', label: 'Structuring', tag: 'BSA · CTR', color: '#0ea5e9', bg: '#f0f9ff', border: '#bae6fd',
@@ -32,12 +33,27 @@ export default function QueryPanel({ onSubmit, loading, queryHistory = [] }) {
   const [apStep,      setApStep]      = useState(-1)
   const [showHistory, setShowHistory] = useState(false)
 
+  // Keep a ref so async autopilot loop always sees the latest loading value
+  const loadingRef = useRef(loading)
+  useEffect(() => { loadingRef.current = loading }, [loading])
+
   const run = useCallback((q) => {
     const target = (q ?? query).trim()
     if (!target || loading) return
     setQuery(target)
     onSubmit(target)
   }, [query, loading, onSubmit])
+
+  // Wait until loading starts, then wait until it finishes
+  const waitForResult = () => new Promise(resolve => {
+    let started = false
+    const iv = setInterval(() => {
+      if (loadingRef.current) started = true
+      if (started && !loadingRef.current) { clearInterval(iv); resolve() }
+    }, 250)
+    // Safety ceiling: give up after 120s so autopilot never hangs forever
+    setTimeout(() => { clearInterval(iv); resolve() }, 120_000)
+  })
 
   const startAutopilot = async () => {
     if (loading || autopilot) return
@@ -46,7 +62,9 @@ export default function QueryPanel({ onSubmit, loading, queryHistory = [] }) {
       setApStep(i)
       setQuery(AUTOPILOT_SCRIPT[i])
       onSubmit(AUTOPILOT_SCRIPT[i])
-      if (i < AUTOPILOT_SCRIPT.length - 1) await new Promise(r => setTimeout(r, 4000))
+      await waitForResult()
+      // Brief visual pause between queries so results are readable
+      if (i < AUTOPILOT_SCRIPT.length - 1) await new Promise(r => setTimeout(r, 2000))
     }
     setAutopilot(false)
     setApStep(-1)
@@ -144,7 +162,7 @@ export default function QueryPanel({ onSubmit, loading, queryHistory = [] }) {
         <button
           onClick={async () => {
             try {
-              const res = await fetch('http://localhost:8000/simulate-attack', { method: 'POST' })
+                const res = await fetch(`${API_BASE}/simulate-attack`, { method: 'POST' })
               const data = await res.json()
               if (data.query) run(data.query)
             } catch { /* ignore */ }

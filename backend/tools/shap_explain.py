@@ -14,22 +14,18 @@ from __future__ import annotations
 
 import logging
 import math
-from pathlib import Path
 from typing import Optional
 
-import joblib
 import numpy as np
 import pandas as pd
 from pydantic import BaseModel, Field
 
 from agent.registry import tool
 from data.db import get_connection
+from tools.model_store import load_xgb_payload
 
 logger = logging.getLogger(__name__)
 
-_MODEL_PATH = Path(__file__).parent.parent / "data/models/xgb_baseline.joblib"
-
-# ── Module-level state loaded once at import ────────────────────────────────
 _model       = None
 _explainer   = None
 _feat_cols   = None
@@ -79,7 +75,7 @@ def _sigmoid(x: float) -> float:
 
 try:
     import shap as _shap_lib
-    _payload    = joblib.load(_MODEL_PATH)
+    _payload    = load_xgb_payload()
     _model      = _payload["model"]
     _feat_cols  = _payload["feature_cols"]
     _fmt_cols   = _payload["fmt_cols"]

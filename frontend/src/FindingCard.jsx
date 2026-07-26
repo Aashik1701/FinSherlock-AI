@@ -3,6 +3,7 @@ import RiskGauge from './RiskGauge'
 import GraphView from './GraphView'
 import TimelineView from './TimelineView'
 import { openSAR } from './sarExport'
+import { API_BASE } from './api'
 
 const fmtUSD = n => typeof n === 'number' ? `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }` : '—'
 
@@ -137,7 +138,7 @@ function SHAPPanel({ accountId, windowDays }) {
   const load = useCallback(async () => {
     setState('loading')
     try {
-      const res = await fetch('http://localhost:8000/tools/shap_explain', {
+      const res = await fetch(`${API_BASE}/tools/shap_explain`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ args: { account_ids: [accountId], window_days: windowDays ?? 30 } }),
@@ -214,7 +215,7 @@ export default function FindingCard({ exp, structuringData, smurfingData, layeri
     setFeedbackState('submitting')
     setError(null)
     try {
-      const res = await fetch('http://localhost:8000/feedback', {
+      const res = await fetch(`${API_BASE}/feedback`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ account_id: exp.account_id, label, risk_score: (exp.risk_score ?? 0) / 100, query_text: exp.explanation }),

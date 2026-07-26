@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-
-const API_BASE = 'http://localhost:8000'
+import { API_BASE } from './api'
 
 const COLUMNS = [
   { key: 'open', label: 'Open', color: 'bg-blue-500', lightBg: 'bg-blue-50/50' },

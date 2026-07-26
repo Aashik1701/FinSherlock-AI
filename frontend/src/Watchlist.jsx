@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, Fragment } from 'react'
 import Sparkline from './Sparkline'
-
-const API_BASE = 'http://localhost:8000'
+import { API_BASE } from './api'
 
 const fmtPct = (v) => `${(v * 100).toFixed(1)}%`
 

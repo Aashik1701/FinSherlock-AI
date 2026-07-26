@@ -36,6 +36,7 @@ from pydantic import BaseModel, Field
 
 from agent.registry import tool
 from data.db import get_connection
+from tools.model_store import load_xgb_payload
 
 logger = logging.getLogger(__name__)
 
@@ -54,9 +55,7 @@ _model = None
 _feat_cols = None
 _MODEL_READY = False
 try:
-    from pathlib import Path
-    import joblib
-    _payload = joblib.load(Path(__file__).parent.parent / "data/models/xgb_baseline.joblib")
+    _payload = load_xgb_payload()
     _model = _payload["model"]
     _feat_cols = _payload["feature_cols"]
     _MODEL_READY = True

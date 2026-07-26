@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-
-const API_BASE = 'http://localhost:8000'
+import { API_BASE } from './api'
 
 const fmtUSD = n => typeof n === 'number' ? `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'
 

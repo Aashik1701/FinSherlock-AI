@@ -20,7 +20,6 @@ explanations for the top risky transaction per account.
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 from typing import Optional
 
 import joblib
@@ -30,12 +29,10 @@ from pydantic import BaseModel, Field
 
 from agent.registry import tool
 from data.db import get_connection
+from tools.model_store import MODEL_PATH, load_xgb_payload
 
 logger = logging.getLogger(__name__)
 
-_MODEL_PATH = Path(__file__).parent.parent / "data/models/xgb_baseline.joblib"
-
-# ── Load model at import time ──────────────────────────────────────────────────
 _model          = None
 _feat_cols      = None
 _fmt_cols       = None
@@ -49,7 +46,7 @@ _ENTROPY_BINS   = 10
 _shap_explainer = None
 
 try:
-    _payload        = joblib.load(_MODEL_PATH)
+    _payload        = load_xgb_payload()
     _model          = _payload["model"]
     _feat_cols      = _payload["feature_cols"]
     _fmt_cols       = _payload["fmt_cols"]
@@ -57,12 +54,12 @@ try:
     _dow_cols       = _payload.get("dow_cols", [])
     _threshold      = _payload["threshold"]
     _MODEL_READY    = True
-    logger.info("XGBoost baseline loaded from %s (threshold=%.4f)", _MODEL_PATH, _threshold)
+    logger.info("XGBoost baseline ready (threshold=%.4f)", _threshold)
 except FileNotFoundError:
     logger.warning(
         "XGBoost model not found at %s — run scripts/train_xgboost_baseline.py first. "
         "ml_risk_score will return empty results until the model is available.",
-        _MODEL_PATH,
+        MODEL_PATH,
     )
 except Exception as exc:
     logger.error("Failed to load XGBoost model: %s", exc)
@@ -85,7 +82,7 @@ def reload_model():
     """Hot-reload the XGBoost model from disk (called after retrain)."""
     global _model, _feat_cols, _fmt_cols, _hod_cols, _dow_cols, _threshold, _MODEL_READY, _shap_explainer
     try:
-        payload     = joblib.load(_MODEL_PATH)
+        payload     = load_xgb_payload()
         _model      = payload["model"]
         _feat_cols  = payload["feature_cols"]
         _fmt_cols   = payload["fmt_cols"]
@@ -94,7 +91,7 @@ def reload_model():
         _threshold  = payload["threshold"]
         _MODEL_READY = True
         _shap_explainer = None  # reset SHAP explainer
-        logger.info("Model hot-reloaded from %s (threshold=%.4f)", _MODEL_PATH, _threshold)
+        logger.info("Model hot-reloaded (threshold=%.4f)", _threshold)
     except Exception as exc:
         logger.error("Failed to hot-reload model: %s", exc)
         _MODEL_READY = False

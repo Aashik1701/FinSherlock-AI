@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
-
-const API_BASE = 'http://localhost:8000'
+import { API_BASE } from './api'
 
 function MetricBar({ label, value, max = 1, color = 'bg-blue-500' }) {
   const pct = Math.min(value / max * 100, 100)
