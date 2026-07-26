@@ -10,6 +10,7 @@ import Cases           from './Cases'
 import LiveStream      from './LiveStream'
 import ExecutiveSummary from './ExecutiveSummary'
 import RingView        from './RingView'
+import CopilotWidget   from './CopilotWidget'
 
 const API_BASE = 'http://localhost:8000'
 
@@ -529,6 +530,8 @@ export default function App() {
           </p>
         </div>
       </footer>
+      {/* ── Floating Copilot Chatbot ────────────────────────────────────────── */}
+      <CopilotWidget />
     </div>
   )
 }

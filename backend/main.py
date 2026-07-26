@@ -687,6 +687,91 @@ def simulate_attack() -> dict:
     }
 
 
+# ---------------------------------------------------------------------------
+# AI Compliance Copilot Chatbot Endpoint
+# ---------------------------------------------------------------------------
+
+class CopilotRequest(BaseModel):
+    message: str
+    account_id: Optional[str] = None
+
+
+@app.post("/copilot", tags=["copilot"])
+def copilot_chat(request: CopilotRequest) -> dict:
+    """
+    AI Compliance Assistant — answers regulatory questions (FinCEN/BSA CTR/SAR rules),
+    explains system architecture (Two-Brain model, Louvain community detection), or
+    provides compliance advice for an investigator.
+    """
+    q = request.message.strip()
+    if not q:
+        raise HTTPException(status_code=400, detail="Message cannot be empty")
+
+    q_lower = q.lower()
+
+    # 1. Check if LLM API keys are configured
+    import os
+    if os.getenv("GROQ_API_KEY") or os.getenv("GEMINI_API_KEY"):
+        try:
+            import litellm
+            model = "groq/llama-3.3-70b-versatile" if os.getenv("GROQ_API_KEY") else "gemini/gemini-2.0-flash"
+            prompt = (
+                "You are FinSherlock AI Copilot, a senior Anti-Money Laundering (AML) compliance expert. "
+                "Provide a concise, professional 2-3 sentence answer to the analyst's question. "
+                f"Question: {q}"
+            )
+            res = litellm.completion(
+                model=model,
+                messages=[{"role": "system", "content": prompt}],
+                max_tokens=300,
+                temperature=0.2,
+            )
+            answer = res.choices[0].message.content.strip()
+            return {"answer": answer, "source": "llm"}
+        except Exception as exc:
+            logger.warning("Copilot LLM failed, using compliance knowledge base: %s", exc)
+
+    # 2. Knowledge-base fallback responses
+    if "structuring" in q_lower or "ctr" in q_lower or "10,000" in q_lower or "10000" in q_lower or "31 u.s.c" in q_lower:
+        answer = (
+            "Structuring is a federal crime under 31 U.S.C. § 5324 where cash deposits are intentionally "
+            "broken into amounts under $10,000 to evade Bank Secrecy Act (BSA) Currency Transaction Reporting (CTR). "
+            "FinSherlock AI flags deposits within 5% of the threshold over rolling time windows."
+        )
+    elif "sar" in q_lower or "deadline" in q_lower or "report" in q_lower or "filing" in q_lower:
+        answer = (
+            "Under FinCEN regulations, financial institutions must file a Suspicious Activity Report (SAR) "
+            "within 30 calendar days after the date of initial detection of a suspicious transaction. "
+            "If no suspect is identified, the deadline extends to 60 days."
+        )
+    elif "mule" in q_lower or "ring" in q_lower or "louvain" in q_lower or "community" in q_lower:
+        answer = (
+            "FinSherlock AI uses Louvain Community Detection to identify money mule rings. "
+            "The algorithm analyzes transaction graph density and internal circulation ratios to flag clusters "
+            "of accounts moving money primarily inside the group before transferring funds outward."
+        )
+    elif "two-brain" in q_lower or "architecture" in q_lower or "hallucinat" in q_lower:
+        answer = (
+            "Our Two-Brain Architecture separates LLM planning from mathematical execution. "
+            "Brain 1 (LLM) only parses query intent and generates a tool call plan. "
+            "Brain 2 (Python/DuckDB/XGBoost) executes 100% of calculation and risk scoring, guaranteeing zero LLM hallucinations."
+        )
+    elif "velocity" in q_lower or "spike" in q_lower or "surge" in q_lower:
+        answer = (
+            "Velocity spike detection compares an account's recent 7-day transaction frequency against its 90-day baseline. "
+            "Surges of 3× or greater are flagged as high-risk, as sudden bursts often indicate compromised or automated mule activity."
+        )
+    else:
+        answer = (
+            "As your AML Compliance Copilot, I'm here to assist with FinCEN/BSA regulations, CTR/SAR filing guidance, "
+            "typology explanations (Structuring, Smurfing, Layering, Mule Rings), or model metrics. "
+            "Try asking about structuring thresholds, SAR deadlines, or our Louvain ring detector!"
+        )
+
+    return {"answer": answer, "source": "compliance_kb"}
+
+
+
 # Register one POST /tools/{name} per entry in TOOL_REGISTRY at startup
 for _name, _entry in TOOL_REGISTRY.items():
     _handler = _make_tool_handler(_name)
