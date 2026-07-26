@@ -226,8 +226,8 @@ def deterministic_fallback_plan(query: str) -> dict:
         "window_days": window_days,
     }
 
-    # 1. Single-entity lookup —————————————————————————————————————————————————
-    # Matches: "customer 1098", "account ACC_A", "explain ACC_B",
+# 1. Single-entity lookup —————————————————————————————————————————————————
+    # Matches: "customer 1098", "account ACC_A", "explain ACC_A",
     #          "show customer 42", "investigate account XYZ-99"
     # Run on the ORIGINAL query (not q) to preserve case in the captured ID.
     # The optional second group handles "investigate account XYZ-99" so that
@@ -255,8 +255,16 @@ def deterministic_fallback_plan(query: str) -> dict:
                     "args": {"account_ids": [entity_id], "window_days": window_days},
                 },
                 {
+                    "tool": "ml_risk_score",
+                    "args": {"account_ids": [entity_id], "window_days": window_days, "top_n": 20},
+                },
+                {
                     "tool": "classify_risk",
-                    "args": {"anomaly_output": None, "account_id": entity_id},
+                    "args": {"anomaly_output": None, "ml_output": None, "account_id": entity_id},
+                },
+                {
+                    "tool": "shap_explain",
+                    "args": {"account_ids": [entity_id], "window_days": window_days},
                 },
                 {
                     "tool": "explain_flag",
@@ -280,7 +288,9 @@ def deterministic_fallback_plan(query: str) -> dict:
                 {"tool": "run_eda",           "args": {}},
                 {"tool": "engineer_features", "args": {"window_days": window_days, "persist": False}},
                 {"tool": "detect_smurfing",   "args": {"window_days": window_days}},
-                {"tool": "classify_risk",     "args": {"smurfing_output": None}},
+                {"tool": "ml_risk_score",     "args": {"window_days": window_days, "top_n": 50}},
+                {"tool": "classify_risk",     "args": {"smurfing_output": None, "ml_output": None}},
+                {"tool": "shap_explain",      "args": {"account_ids": "from_ml_output", "window_days": window_days}},
                 {"tool": "explain_flag",      "args": {"classify_output": None, "target_pattern": "smurfing"}},
             ],
             "planner_source": "deterministic",
@@ -296,7 +306,9 @@ def deterministic_fallback_plan(query: str) -> dict:
                 {"tool": "run_eda",            "args": {}},
                 {"tool": "engineer_features",  "args": {"window_days": window_days, "persist": False}},
                 {"tool": "detect_structuring", "args": {"window_days": window_days}},
-                {"tool": "classify_risk",      "args": {"structuring_output": None}},
+                {"tool": "ml_risk_score",      "args": {"window_days": window_days, "top_n": 50}},
+                {"tool": "classify_risk",      "args": {"structuring_output": None, "ml_output": None}},
+                {"tool": "shap_explain",       "args": {"account_ids": "from_ml_output", "window_days": window_days}},
                 {"tool": "explain_flag",       "args": {"classify_output": None, "target_pattern": "structuring"}},
             ],
             "planner_source": "deterministic",
@@ -317,13 +329,36 @@ def deterministic_fallback_plan(query: str) -> dict:
                 {"tool": "run_eda",           "args": {}},
                 {"tool": "engineer_features", "args": {"window_days": window_days, "persist": False}},
                 {"tool": "detect_layering",   "args": {"window_days": window_days}},
-                {"tool": "classify_risk",     "args": {"layering_output": None}},
+                {"tool": "detect_round_trips", "args": {"window_days": window_days, "min_hops": 3}},
+                {"tool": "detect_cycles",     "args": {"window_days": window_days, "min_length": 3, "max_length": 8}},
+                {"tool": "ml_risk_score",     "args": {"window_days": window_days, "top_n": 50}},
+                {"tool": "classify_risk",     "args": {"layering_output": None, "ml_output": None}},
+                {"tool": "shap_explain",      "args": {"account_ids": "from_ml_output", "window_days": window_days}},
                 {"tool": "explain_flag",      "args": {"classify_output": None, "target_pattern": "layering"}},
             ],
             "planner_source": "deterministic",
         }
 
-    # 5. Generic catch-all ——————————————————————————————————————————————————
+    # 5. Round-trip / cycle detection —————————————————————————————————————————————
+    if re.search(r"round[\s-]?trip|circular|cycle|loop|return[\s-]?flow", q):
+        return {
+            "intent": "pattern_scan",
+            "filters": base_filters,
+            "target_pattern": "round_trip",
+            "plan": [
+                {"tool": "run_eda",           "args": {}},
+                {"tool": "engineer_features", "args": {"window_days": window_days, "persist": False}},
+                {"tool": "detect_round_trips", "args": {"window_days": window_days, "min_hops": 3}},
+                {"tool": "detect_cycles",     "args": {"window_days": window_days, "min_length": 2, "max_length": 8}},
+                {"tool": "ml_risk_score",     "args": {"window_days": window_days, "top_n": 50}},
+                {"tool": "classify_risk",     "args": {"anomaly_output": None, "ml_output": None}},
+                {"tool": "shap_explain",      "args": {"account_ids": "from_ml_output", "window_days": window_days}},
+                {"tool": "explain_flag",      "args": {"classify_output": None, "target_pattern": "round_trip"}},
+            ],
+            "planner_source": "deterministic",
+        }
+
+    # 6. Generic catch-all ——————————————————————————————————————————————————
     return {
         "intent": "broad_exploration",
         "filters": base_filters,
@@ -332,7 +367,11 @@ def deterministic_fallback_plan(query: str) -> dict:
             {"tool": "run_eda",            "args": {}},
             {"tool": "engineer_features",  "args": {"window_days": window_days, "persist": False}},
             {"tool": "detect_anomalies",   "args": {"window_days": window_days}},
-            {"tool": "classify_risk",      "args": {"anomaly_output": None}},
+            {"tool": "detect_cycles",      "args": {"window_days": window_days, "min_length": 2, "max_length": 6}},
+            {"tool": "compute_pagerank",   "args": {"window_days": window_days, "top_n": 20}},
+            {"tool": "ml_risk_score",      "args": {"window_days": window_days, "top_n": 50}},
+            {"tool": "classify_risk",      "args": {"anomaly_output": None, "ml_output": None}},
+            {"tool": "shap_explain",       "args": {"account_ids": "from_ml_output", "window_days": window_days}},
             {"tool": "explain_flag",       "args": {"classify_output": None}},
         ],
         "planner_source": "deterministic",
