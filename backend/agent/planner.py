@@ -59,11 +59,9 @@ Use exactly this structure:
 {{
   "intent": "<broad_exploration | pattern_scan | single_entity_lookup | pure_aggregation>",
   "filters": {{
-    "date_from":   null,
-    "date_to":     null,
-    "account_ids": null,
-    "country":          null,
-    "segment":          null,
+    "date_from":        null,
+    "date_to":          null,
+    "account_ids":      null,
     "transaction_type": null,
     "window_days":      30
   }},
@@ -101,7 +99,7 @@ Broad exploration:
   run_eda → engineer_features → detect_anomalies
   → classify_risk(anomaly_output=null) → explain_flag(classify_output=null)
 
-Extract date windows from "last N days" → set window_days. Extract country ("in Country X" / "US", "UK") → set country filter. Extract segment ("corporate", "retail") → set segment filter.
+Extract date windows from "last N days" → set window_days.
 """
 
 
@@ -227,18 +225,6 @@ def deterministic_fallback_plan(query: str) -> dict:
     if date_until:
         date_to = date_until.group(1)
 
-    # --- Extract optional country filter ---
-    country: str | None = None
-    country_match = re.search(r"\b(?:in|from|country)\s+([A-Za-z]{2,15})\b", q)
-    if country_match and country_match.group(1).lower() not in {"the", "last", "recent", "customer", "account"}:
-        country = country_match.group(1).upper()
-
-    # --- Extract optional segment filter ---
-    segment: str | None = None
-    segment_match = re.search(r"\b(retail|corporate|private[\s-]banking|commercial)\b", q)
-    if segment_match:
-        segment = segment_match.group(1).lower()
-
     # --- Extract optional transaction_type filter ---
     transaction_type: str | None = None
     txn_type_match = re.search(r"\b(cash[\s_]?deposit|wire|transfer|withdrawal|crypto)\b", q)
@@ -249,8 +235,6 @@ def deterministic_fallback_plan(query: str) -> dict:
         "date_from":        date_from,
         "date_to":          date_to,
         "account_ids":      None,
-        "country":          country,
-        "segment":          segment,
         "transaction_type": transaction_type,
         "window_days":      window_days,
     }

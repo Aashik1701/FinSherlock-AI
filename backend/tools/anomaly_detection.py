@@ -65,14 +65,6 @@ class DetectStructuringArgs(BaseModel):
         default=None,
         description="ISO-8601 upper date bound. Defaults to latest timestamp in dataset.",
     )
-    country: Optional[str] = Field(
-        default=None,
-        description="Country code or country name filter (e.g. 'US', 'UK').",
-    )
-    segment: Optional[str] = Field(
-        default=None,
-        description="Customer account segment filter (e.g. 'retail', 'corporate').",
-    )
     transaction_type: Optional[str] = Field(
         default=None,
         description="Transaction channel/type filter (e.g. 'cash_deposit', 'wire').",
@@ -103,13 +95,11 @@ def detect_structuring(args: DetectStructuringArgs) -> dict:
         as_of = pd.Timestamp(row[0]) if row[0] else pd.Timestamp.now()
     window_start = as_of - pd.Timedelta(days=args.window_days)
 
-    # Optional account, country, segment filters
+    # Optional account / transaction_type filters
     account_filter = ""
     if args.account_ids:
         ids_sql = ", ".join(f"'{a}'" for a in args.account_ids)
         account_filter += f" AND sender_account_id IN ({ids_sql})"
-    if args.country:
-        account_filter += f" AND country = '{args.country}'"
     if args.transaction_type:
         account_filter += f" AND transaction_type = '{args.transaction_type}'"
 
