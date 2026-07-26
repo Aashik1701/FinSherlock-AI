@@ -14,10 +14,6 @@ An AI-powered compliance agent that accepts natural language queries, dynamicall
 
 **Demo Video:** [Watch Demo](https://www.youtube.com/watch?v=irnUB87t8Sc)
 
-<!-- If you upload the video file directly to the repo, use this instead: -->
-<!-- https://github.com/user-attachments/assets/YOUR_ASSET_ID -->
-
-**Frontend:** `http://localhost:5173` &nbsp;|&nbsp; **Backend API:** `http://localhost:8000` &nbsp;|&nbsp; **Swagger Docs:** `http://localhost:8000/docs`
 
 ---
 
