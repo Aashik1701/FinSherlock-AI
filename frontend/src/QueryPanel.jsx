@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 
 const TYPOLOGIES = [
   {
@@ -79,21 +79,101 @@ const TYPOLOGIES = [
       </svg>
     ),
   },
+  {
+    key: 'mule_ring',
+    label: 'Mule Rings',
+    tag: 'Graph · Louvain',
+    tagCls: 'text-rose-400 border-rose-800/80 bg-rose-950/40',
+    subtitle: 'Coordinated ring detection',
+    description:
+      'Louvain community detection finds clusters of accounts moving money primarily within the group — hallmark of coordinated money mule networks.',
+    query: 'Find coordinated mule ring communities in the transaction network',
+    accent: 'text-rose-400',
+    border: 'border-slate-800 hover:border-rose-700/60',
+    bg: 'bg-slate-900/60 hover:bg-slate-900',
+    icon: (
+      <svg viewBox="0 0 28 28" className="w-6 h-6" fill="currentColor">
+        {[0, 72, 144, 216, 288].map((deg, i) => {
+          const a = (deg * Math.PI) / 180
+          const x = 14 + 9 * Math.cos(a)
+          const y = 14 + 9 * Math.sin(a)
+          const nx = 14 + 9 * Math.cos(a + 72 * Math.PI / 180)
+          const ny = 14 + 9 * Math.sin(a + 72 * Math.PI / 180)
+          return (
+            <g key={i}>
+              <line x1={x} y1={y} x2={nx} y2={ny} stroke="currentColor" strokeWidth="1" opacity="0.5" />
+              <circle cx={x} cy={y} r="2.5" opacity={0.7 + i * 0.06} />
+            </g>
+          )
+        })}
+        <circle cx="14" cy="14" r="2" opacity="0.3" />
+      </svg>
+    ),
+  },
+  {
+    key: 'velocity',
+    label: 'Velocity Spikes',
+    tag: 'FinCEN · SAR',
+    tagCls: 'text-orange-400 border-orange-800/80 bg-orange-950/40',
+    subtitle: 'Sudden transaction frequency surge',
+    description:
+      'Accounts with a sudden 3× or greater surge in daily transaction frequency vs their 90-day baseline — a top FinCEN SAR trigger pattern.',
+    query: 'Which accounts showed sudden velocity spikes in transaction frequency?',
+    accent: 'text-orange-400',
+    border: 'border-slate-800 hover:border-orange-700/60',
+    bg: 'bg-slate-900/60 hover:bg-slate-900',
+    icon: (
+      <svg viewBox="0 0 28 20" className="w-6 h-4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+        <polyline points="2,16 8,16 10,10 13,4 16,10 18,8 22,14 26,14" opacity="0.8" />
+        <line x1="18" y1="2" x2="18" y2="18" strokeDasharray="2 2" opacity="0.3" />
+      </svg>
+    ),
+  },
 ]
 
-export default function QueryPanel({ onSubmit, loading }) {
-  const [query, setQuery] = useState('')
+// Demo autopilot script
+const AUTOPILOT_SCRIPT = [
+  'Find structuring patterns in recent transactions',
+  'Find coordinated mule ring communities in the transaction network',
+  'Which accounts showed sudden velocity spikes in transaction frequency?',
+]
 
-  const run = (q) => {
+const fmtAge = ts => {
+  const diff = Date.now() - ts
+  if (diff < 60_000)     return 'just now'
+  if (diff < 3_600_000)  return `${Math.floor(diff / 60_000)}m ago`
+  return `${Math.floor(diff / 3_600_000)}h ago`
+}
+
+export default function QueryPanel({ onSubmit, loading, queryHistory = [] }) {
+  const [query,       setQuery]       = useState('')
+  const [autopilot,   setAutopilot]   = useState(false)
+  const [apStep,      setApStep]      = useState(-1)
+  const [showHistory, setShowHistory] = useState(false)
+
+  const run = useCallback((q) => {
     const target = (q ?? query).trim()
     if (!target || loading) return
     setQuery(target)
     onSubmit(target)
+  }, [query, loading, onSubmit])
+
+  const startAutopilot = async () => {
+    if (loading || autopilot) return
+    setAutopilot(true)
+    for (let i = 0; i < AUTOPILOT_SCRIPT.length; i++) {
+      setApStep(i)
+      setQuery(AUTOPILOT_SCRIPT[i])
+      onSubmit(AUTOPILOT_SCRIPT[i])
+      if (i < AUTOPILOT_SCRIPT.length - 1) await new Promise(r => setTimeout(r, 4000))
+    }
+    setAutopilot(false)
+    setApStep(-1)
   }
 
   return (
     <section className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="space-y-1">
           <h2 className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">
             Investigation Query
@@ -102,6 +182,22 @@ export default function QueryPanel({ onSubmit, loading }) {
             Ask in natural language — FinSherlock AI plans and runs the analytical tools automatically.
           </p>
         </div>
+        {/* Demo Autopilot */}
+        <button
+          onClick={startAutopilot}
+          disabled={loading || autopilot}
+          title="Run 3 scripted investigation queries sequentially — hands-free demo mode"
+          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-indigo-800/70 bg-indigo-950/40 hover:bg-indigo-900/60 text-[10px] font-bold text-indigo-300 hover:text-indigo-100 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          {autopilot ? (
+            <>
+              <span className="w-2 h-2 rounded-full bg-indigo-400 animate-ping" />
+              Demo Running ({apStep + 1}/{AUTOPILOT_SCRIPT.length})…
+            </>
+          ) : (
+            <>🎬 Demo Autopilot</>
+          )}
+        </button>
       </div>
 
       {/* Input bar */}
@@ -138,27 +234,29 @@ export default function QueryPanel({ onSubmit, loading }) {
         </button>
       </div>
 
-      {/* Preset demo chips */}
+      {/* Preset chips + history */}
       <div className="flex flex-wrap items-center gap-2 text-[10px]">
-        <span className="text-slate-500 font-mono font-medium">Quick Presets:</span>
-        <button
-          onClick={() => run("Find structuring patterns in recent transactions")}
-          className="px-3 py-1 rounded-lg border border-slate-800 bg-slate-900/80 hover:bg-slate-800 hover:border-slate-700 text-sky-400 font-mono transition-all"
-        >
-          Structuring ($9,500–$9,900)
+        <span className="text-slate-500 font-mono font-medium">Quick:</span>
+        <button onClick={() => run("Find structuring patterns in recent transactions")}
+          className="px-3 py-1 rounded-lg border border-slate-800 bg-slate-900/80 hover:bg-slate-800 hover:border-slate-700 text-sky-400 font-mono transition-all">
+          Structuring
         </button>
-        <button
-          onClick={() => run("Are there smurfing or fan-out patterns across multiple accounts?")}
-          className="px-3 py-1 rounded-lg border border-slate-800 bg-slate-900/80 hover:bg-slate-800 hover:border-slate-700 text-violet-400 font-mono transition-all"
-        >
-          Smurfing (Fan-out ≥ 3)
+        <button onClick={() => run("Are there smurfing or fan-out patterns across multiple accounts?")}
+          className="px-3 py-1 rounded-lg border border-slate-800 bg-slate-900/80 hover:bg-slate-800 hover:border-slate-700 text-violet-400 font-mono transition-all">
+          Smurfing
         </button>
-        <button
-          onClick={() => run("Investigate customer ACC_BENIGN_5K with $5,000 deposits")}
+        <button onClick={() => run("Find coordinated mule ring communities in the transaction network")}
+          className="px-3 py-1 rounded-lg border border-slate-800 bg-slate-900/80 hover:bg-slate-800 hover:border-rose-700 text-rose-400 font-mono transition-all">
+          🔴 Mule Rings
+        </button>
+        <button onClick={() => run("Which accounts showed sudden velocity spikes in transaction frequency?")}
+          className="px-3 py-1 rounded-lg border border-slate-800 bg-slate-900/80 hover:bg-slate-800 hover:border-orange-700 text-orange-400 font-mono transition-all">
+          ⚡ Velocity
+        </button>
+        <button onClick={() => run("Investigate customer ACC_BENIGN_5K with $5,000 deposits")}
           className="px-3 py-1 rounded-lg border border-emerald-900/50 bg-emerald-950/20 hover:bg-emerald-900/40 text-emerald-400 font-mono transition-all"
-          title="Adversarial query: verify system does NOT flag benign sub-threshold activity"
-        >
-          🛡 Benign Test ($5,000 - No Flag)
+          title="Verify system does NOT flag benign sub-threshold activity">
+          🛡 Benign Test
         </button>
         <button
           onClick={async () => {
@@ -168,15 +266,35 @@ export default function QueryPanel({ onSubmit, loading }) {
               if (data.query) run(data.query)
             } catch (e) { console.error("Simulation failed", e) }
           }}
-          className="px-3 py-1 rounded-lg border border-rose-800/80 bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 font-mono transition-all font-semibold shadow-sm animate-pulse"
-          title="Inject live synthetic attack into DuckDB and trigger pipeline"
-        >
-          ⚡ Inject Live Attack
+          className="px-3 py-1 rounded-lg border border-rose-800/80 bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 font-mono transition-all font-semibold animate-pulse"
+          title="Inject live synthetic attack into DuckDB">
+          ⚡ Live Attack
         </button>
+        {queryHistory.length > 0 && (
+          <button
+            onClick={() => setShowHistory(h => !h)}
+            className="px-3 py-1 rounded-lg border border-slate-800 bg-slate-900/50 hover:bg-slate-800 text-slate-500 hover:text-slate-300 font-mono transition-all ml-auto">
+            {showHistory ? '↑ History' : `↓ History (${queryHistory.length})`}
+          </button>
+        )}
       </div>
 
-      {/* Typology cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1">
+      {/* History drawer */}
+      {showHistory && queryHistory.length > 0 && (
+        <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-3 space-y-1">
+          <p className="text-[9px] font-bold text-slate-600 uppercase tracking-wider mb-2">Recent Queries</p>
+          {queryHistory.map((h, i) => (
+            <button key={i} onClick={() => { run(h.query); setShowHistory(false) }} disabled={loading}
+              className="w-full text-left flex items-center justify-between gap-3 px-3 py-2 rounded-lg hover:bg-slate-800 transition-colors group">
+              <span className="text-[11px] text-slate-400 group-hover:text-slate-200 font-mono truncate">{h.query}</span>
+              <span className="text-[10px] text-slate-700 group-hover:text-slate-500 shrink-0">{fmtAge(h.ts)}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Typology cards — 3 columns on tablet, 5 on desktop */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-3 pt-1">
         {TYPOLOGIES.map(t => (
           <button
             key={t.key}

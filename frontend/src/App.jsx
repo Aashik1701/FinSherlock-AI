@@ -1,13 +1,15 @@
-import { useState, useEffect } from 'react'
-import QueryPanel    from './QueryPanel'
-import ExecutionPlan from './ExecutionPlan'
-import FindingCard   from './FindingCard'
-import MetricsPanel  from './MetricsPanel'
-import HeatmapView   from './HeatmapView'
-import ErrorBoundary from './ErrorBoundary'
-import Watchlist     from './Watchlist'
-import Cases         from './Cases'
-import LiveStream    from './LiveStream'
+import { useState, useEffect, useCallback } from 'react'
+import QueryPanel      from './QueryPanel'
+import ExecutionPlan   from './ExecutionPlan'
+import FindingCard     from './FindingCard'
+import MetricsPanel    from './MetricsPanel'
+import HeatmapView     from './HeatmapView'
+import ErrorBoundary   from './ErrorBoundary'
+import Watchlist       from './Watchlist'
+import Cases           from './Cases'
+import LiveStream      from './LiveStream'
+import ExecutiveSummary from './ExecutiveSummary'
+import RingView        from './RingView'
 
 const API_BASE = 'http://localhost:8000'
 
@@ -245,11 +247,26 @@ export default function App() {
   const [error,      setError]      = useState(null)
   const [toolStatus, setToolStatus] = useState({})
 
+  // Query history (last 8 entries, persisted in localStorage)
+  const [queryHistory, setQueryHistory] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('fs_query_history') ?? '[]') }
+    catch { return [] }
+  })
+
+  const addToHistory = useCallback((q) => {
+    setQueryHistory(prev => {
+      const next = [{ query: q, ts: Date.now() }, ...prev.filter(h => h.query !== q)].slice(0, 8)
+      try { localStorage.setItem('fs_query_history', JSON.stringify(next)) } catch {}
+      return next
+    })
+  }, [])
+
   const investigate = async (query) => {
     setLoading(true)
     setResult(null)
     setError(null)
     setToolStatus({})
+    addToHistory(query)
 
     try {
       const res = await fetch(`${API_BASE}/investigate/stream`, {
@@ -323,18 +340,19 @@ export default function App() {
     }
   }
 
-  // ── Derived state ──────────────────────────────────────────────────────────
-  const plan             = result?.plan?.plan               ?? []
-  const plannerSource    = result?.plan?.planner_source     ?? ''
-  const timing           = result?.timing                   ?? {}
-  const errors           = result?.errors                   ?? []
-  const eda              = result?.results?.run_eda         ?? null
-  const engineerFeatures = result?.results?.engineer_features ?? null
-  const structuringData  = result?.results?.detect_structuring ?? null
-  const smurfingData     = result?.results?.detect_smurfing    ?? null
-  const layeringData     = result?.results?.detect_layering    ?? null
-  const classifyData     = result?.results?.classify_risk              ?? null
+  const plan             = result?.plan?.plan                      ?? []
+  const plannerSource    = result?.plan?.planner_source             ?? ''
+  const timing           = result?.timing                          ?? {}
+  const errors           = result?.errors                          ?? []
+  const eda              = result?.results?.run_eda                ?? null
+  const engineerFeatures = result?.results?.engineer_features      ?? null
+  const structuringData  = result?.results?.detect_structuring     ?? null
+  const smurfingData     = result?.results?.detect_smurfing        ?? null
+  const layeringData     = result?.results?.detect_layering        ?? null
+  const classifyData     = result?.results?.classify_risk          ?? null
   const explanations     = result?.results?.explain_flag?.explanations ?? []
+  const muleRingData     = result?.results?.detect_mule_rings      ?? null
+  const velocityData     = result?.results?.detect_velocity_spikes ?? null
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
@@ -410,7 +428,7 @@ export default function App() {
 
         {activeTab === 'investigate' && (
           <>
-            <QueryPanel onSubmit={investigate} loading={loading} />
+            <QueryPanel onSubmit={investigate} loading={loading} queryHistory={queryHistory} />
 
             {/* Loading — only while waiting for the first plan event */}
             {loading && !result && <LoadingState />}
@@ -453,6 +471,24 @@ export default function App() {
               />
 
               {eda && <HeatmapView edaData={eda} />}
+
+              {/* Executive Summary — appears BEFORE individual finding cards */}
+              <ExecutiveSummary
+                explanations={explanations}
+                structuringData={structuringData}
+                smurfingData={smurfingData}
+                layeringData={layeringData}
+                muleRingData={muleRingData}
+                velocityData={velocityData}
+                classifyData={classifyData}
+                eda={eda}
+              />
+
+              {/* Mule rings + velocity spikes */}
+              <RingView
+                muleRingData={muleRingData}
+                velocityData={velocityData}
+              />
 
               <FindingsSection
                 explanations={explanations}

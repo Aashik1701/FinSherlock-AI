@@ -405,21 +405,62 @@ def deterministic_fallback_plan(query: str) -> dict:
             "planner_source": "deterministic",
         }
 
-    # 6. Generic catch-all ——————————————————————————————————————————————————
+    # 6. Mule ring / community detection ————————————————————————————————————————
+    if re.search(
+        r"mule[\s-]?ring|coordinated|ring|community|cluster|group[\s-]?fraud|gang|network[\s-]?fraud",
+        q,
+    ):
+        return {
+            "intent": "pattern_scan",
+            "filters": base_filters,
+            "target_pattern": "mule_ring",
+            "plan": [
+                {"tool": "run_eda",              "args": {}},
+                {"tool": "detect_mule_rings",    "args": {"window_days": window_days, "top_n": 10}},
+                {"tool": "compute_pagerank",     "args": {"window_days": window_days, "top_n": 20}},
+                {"tool": "ml_risk_score",        "args": {"window_days": window_days, "top_n": 50}},
+                {"tool": "classify_risk",        "args": {"ml_output": None}},
+                {"tool": "explain_flag",         "args": {"classify_output": None, "target_pattern": "mule_ring"}},
+            ],
+            "planner_source": "deterministic",
+        }
+
+    # 7. Velocity spike detection ————————————————————————————————————————————————
+    if re.search(
+        r"velocit|spike|surge|sudden|burst|frequency|rapid[\s-]?increase|unusual[\s-]?activity",
+        q,
+    ):
+        return {
+            "intent": "pattern_scan",
+            "filters": base_filters,
+            "target_pattern": "velocity_spike",
+            "plan": [
+                {"tool": "run_eda",                "args": {}},
+                {"tool": "detect_velocity_spikes", "args": {"window_days": 7, "baseline_days": 90}},
+                {"tool": "ml_risk_score",          "args": {"window_days": window_days, "top_n": 50}},
+                {"tool": "classify_risk",          "args": {"ml_output": None}},
+                {"tool": "explain_flag",           "args": {"classify_output": None, "target_pattern": "velocity_spike"}},
+            ],
+            "planner_source": "deterministic",
+        }
+
     return {
         "intent": "broad_exploration",
         "filters": base_filters,
         "target_pattern": None,
         "plan": [
-            {"tool": "run_eda",            "args": {}},
-            {"tool": "engineer_features",  "args": {"window_days": window_days, "persist": False}},
-            {"tool": "detect_anomalies",   "args": {"window_days": window_days}},
-            {"tool": "detect_cycles",      "args": {"window_days": window_days, "min_length": 2, "max_length": 6}},
-            {"tool": "compute_pagerank",   "args": {"window_days": window_days, "top_n": 20}},
-            {"tool": "ml_risk_score",      "args": {"window_days": window_days, "top_n": 50}},
-            {"tool": "classify_risk",      "args": {"anomaly_output": None, "ml_output": None}},
-            {"tool": "shap_explain",       "args": {"account_ids": "from_ml_output", "window_days": window_days}},
-            {"tool": "explain_flag",       "args": {"classify_output": None}},
+            {"tool": "run_eda",                "args": {}},
+            {"tool": "engineer_features",      "args": {"window_days": window_days, "persist": False}},
+            {"tool": "detect_anomalies",       "args": {"window_days": window_days}},
+            {"tool": "detect_mule_rings",      "args": {"window_days": window_days, "top_n": 10}},
+            {"tool": "detect_velocity_spikes", "args": {"window_days": 7, "baseline_days": 90}},
+            {"tool": "detect_cycles",          "args": {"window_days": window_days, "min_length": 2, "max_length": 6}},
+            {"tool": "compute_pagerank",       "args": {"window_days": window_days, "top_n": 20}},
+            {"tool": "ml_risk_score",          "args": {"window_days": window_days, "top_n": 50}},
+            {"tool": "classify_risk",          "args": {"anomaly_output": None, "ml_output": None}},
+            {"tool": "shap_explain",           "args": {"account_ids": "from_ml_output", "window_days": window_days}},
+            {"tool": "explain_flag",           "args": {"classify_output": None}},
         ],
         "planner_source": "deterministic",
     }
+
