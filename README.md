@@ -12,7 +12,7 @@ An AI-powered compliance agent that accepts natural language queries, dynamicall
 
 <!-- Replace the link below with your actual video URL after recording -->
 
-**Demo Video:** [Watch 3-Minute Demo](https://youtu.be/YOUR_VIDEO_LINK_HERE)
+**Demo Video:** [Watch Demo](https://www.youtube.com/watch?v=irnUB87t8Sc)
 
 <!-- If you upload the video file directly to the repo, use this instead: -->
 <!-- https://github.com/user-attachments/assets/YOUR_ASSET_ID -->
