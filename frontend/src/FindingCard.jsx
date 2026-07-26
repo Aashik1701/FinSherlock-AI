@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { useState, useCallback } from 'react'
 import RiskGauge from './RiskGauge'
 import GraphView from './GraphView'
@@ -296,8 +295,6 @@ function SHAPPanel({ accountId, windowDays }) {
 
 // ─── Main card ─────────────────────────────────────────────────────────────
 
-export default function FindingCard({ exp, structuringData, smurfingData, layeringData, classifyData }) {
-  const [feedback, setFeedback] = useState(null) // 'confirmed' | 'false_positive'
 export default function FindingCard({ exp, structuringData, smurfingData, layeringData, classifyData, onFeedback }) {
   const risk = RISK[exp.risk_level] ?? RISK.low
   const escCls = ESC[exp.escalation] ?? 'bg-slate-800 text-slate-400 border-slate-700'
@@ -350,47 +347,19 @@ export default function FindingCard({ exp, structuringData, smurfingData, layeri
     <article className={`bg-slate-900 border border-slate-800 border-l-4 ${risk.border} rounded-2xl overflow-hidden`}>
 
       {/* ── Card header ─────────────────────────────────────────────── */}
-      <header className="px-6 pt-5 pb-4 border-b border-slate-800/60 flex items-start justify-between flex-wrap gap-4">
-        <div className="flex items-center gap-3 flex-wrap">
-          <span className="font-mono font-bold text-slate-100 text-lg">{exp.account_id}</span>
-          <span className={`px-2.5 py-0.5 rounded border text-[10px] font-bold uppercase tracking-widest ${risk.badge}`}>
+      <header className="px-4 sm:px-6 pt-4 sm:pt-5 pb-3 sm:pb-4 border-b border-slate-800/60 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+        <div className="flex items-center gap-3 flex-wrap min-w-0">
+          <span className="font-mono font-bold text-slate-100 text-lg break-all">{exp.account_id}</span>
+          <span className={`px-2.5 py-0.5 rounded border text-[10px] font-bold uppercase tracking-widest shrink-0 ${risk.badge}`}>
             {exp.risk_level} risk
           </span>
-          <span className="text-slate-700 text-sm font-mono">
+          <span className="text-slate-700 text-sm font-mono shrink-0">
             score&nbsp;
             <span className={`font-bold ${risk.score}`}>{exp.risk_score?.toFixed(1)}</span>
             <span className="text-slate-800">/100</span>
           </span>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          {/* Feedback controls */}
-          {feedback ? (
-            <span className={`px-2.5 py-1 rounded text-[10px] font-mono border font-semibold ${
-              feedback === 'confirmed'
-                ? 'bg-red-950/60 text-red-300 border-red-800'
-                : 'bg-emerald-950/60 text-emerald-300 border-emerald-800'
-            }`}>
-              {feedback === 'confirmed' ? '✓ Confirmed Suspicious' : '✕ Tagged False Positive'}
-            </span>
-          ) : (
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => setFeedback('confirmed')}
-                className="px-2 py-1 rounded border border-slate-800 bg-slate-900 hover:border-red-800 hover:text-red-300 text-[10px] text-slate-500 transition-colors font-mono"
-                title="Mark as confirmed suspicious pattern"
-              >
-                + Confirm
-              </button>
-              <button
-                onClick={() => setFeedback('false_positive')}
-                className="px-2 py-1 rounded border border-slate-800 bg-slate-900 hover:border-emerald-800 hover:text-emerald-300 text-[10px] text-slate-500 transition-colors font-mono"
-                title="Dismiss as false positive"
-              >
-                Dismiss
-              </button>
-            </div>
-          )}
-
+        <div className="flex items-center flex-wrap gap-2">
           <span className={`px-3.5 py-1 rounded-full border text-[10px] font-bold uppercase tracking-widest ${escCls}`}>
             {exp.escalation}
           </span>
@@ -447,11 +416,11 @@ export default function FindingCard({ exp, structuringData, smurfingData, layeri
       </header>
 
       {/* ── Body ────────────────────────────────────────────────────── */}
-      <div className="p-6 space-y-6">
+      <div className="p-4 sm:p-6 space-y-5 sm:space-y-6">
 
-        {/* Gauge + explanation side-by-side */}
-        <div className="flex gap-6 items-start">
-          <div className="shrink-0 w-40">
+        {/* Gauge + explanation */}
+        <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 items-start">
+          <div className="shrink-0 w-32 sm:w-40 mx-auto sm:mx-0">
             <RiskGauge score={exp.risk_score ?? 0} riskLevel={exp.risk_level} uid={exp.account_id} />
           </div>
           <div className="flex-1 space-y-3 min-w-0">

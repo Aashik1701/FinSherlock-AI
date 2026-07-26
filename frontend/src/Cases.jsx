@@ -97,7 +97,7 @@ function CreateCaseModal({ onClose, onCreated }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md p-6 space-y-4 shadow-2xl">
+      <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md mx-3 sm:mx-0 p-5 sm:p-6 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-bold text-slate-100">New Investigation Case</h3>
           <button onClick={onClose} className="text-slate-600 hover:text-slate-400 text-lg leading-none">&times;</button>
@@ -227,7 +227,7 @@ function CaseDetail({ caseData, onClose, onUpdated }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-lg p-6 space-y-5 shadow-2xl max-h-[85vh] overflow-y-auto">
+      <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-lg mx-3 sm:mx-0 p-5 sm:p-6 space-y-5 shadow-2xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-1 min-w-0">
@@ -442,7 +442,7 @@ export default function Cases() {
       {/* Active Learning / Feedback Dashboard */}
       {feedbackStats && feedbackStats.total > 0 && (
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div className="space-y-1">
               <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">Active Learning Loop</h3>
               <p className="text-[11px] text-slate-700">
@@ -453,7 +453,7 @@ export default function Cases() {
               onClick={handleRetrain}
               disabled={retraining || feedbackStats.total < 2}
               title={feedbackStats.total < 2 ? 'Need at least 2 feedback labels to retrain' : 'Retrain model with analyst feedback'}
-              className="px-4 py-1.5 rounded-lg text-[11px] font-bold bg-violet-600 text-white hover:bg-violet-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="self-start sm:self-auto px-4 py-1.5 rounded-lg text-[11px] font-bold bg-violet-600 text-white hover:bg-violet-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               {retraining ? (
                 <span className="flex items-center gap-2">
@@ -464,7 +464,7 @@ export default function Cases() {
             </button>
           </div>
 
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="bg-slate-950 border border-slate-800 rounded-xl px-4 py-3">
               <p className="text-[9px] font-bold text-slate-600 uppercase tracking-widest">Total Labels</p>
               <p className="text-xl font-bold font-mono text-blue-400">{feedbackStats.total}</p>
@@ -502,7 +502,8 @@ export default function Cases() {
       )}
 
       {/* Status filter tabs */}
-      <div className="flex items-center gap-1 bg-slate-900/60 rounded-lg p-0.5 border border-slate-800/50 w-fit">
+      <div className="overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="flex items-center gap-1 bg-slate-900/60 rounded-lg p-0.5 border border-slate-800/50 w-max sm:w-fit">
         {[
           { key: '', label: 'All' },
           { key: 'open', label: 'Open' },
@@ -526,6 +527,7 @@ export default function Cases() {
             )}
           </button>
         ))}
+      </div>
       </div>
 
       {/* Error */}
@@ -563,21 +565,21 @@ export default function Cases() {
               onClick={() => setSelectedCase(c)}
               className="w-full text-left bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-xl px-5 py-3.5 transition-colors group"
             >
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-3 min-w-0">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <div className="flex items-center gap-3 min-w-0 flex-wrap">
                   <span className="text-xs font-mono font-bold text-slate-400 shrink-0">{c.case_id}</span>
                   <StatusBadge status={c.status} />
                   {c.resolution && <ResolutionBadge resolution={c.resolution} />}
                 </div>
-                <div className="flex items-center gap-4 text-[10px] text-slate-600 shrink-0">
+                <div className="flex items-center flex-wrap gap-3 text-[10px] text-slate-600">
                   {c.risk_score != null && (
                     <span className={`font-mono font-bold ${c.risk_score >= 0.65 ? 'text-red-400' : c.risk_score >= 0.30 ? 'text-amber-400' : 'text-emerald-400'}`}>
                       {c.risk_score.toFixed(3)}
                     </span>
                   )}
-                  <span className="font-mono">{c.account_id}</span>
-                  <span>{fmtDate(c.created_at)}</span>
-                  <span className="text-slate-800 group-hover:text-slate-600 transition-colors">→</span>
+                  <span className="font-mono hidden sm:inline">{c.account_id}</span>
+                  <span className="hidden sm:inline">{fmtDate(c.created_at)}</span>
+                  <span className="text-slate-800 group-hover:text-slate-600 transition-colors ml-auto sm:ml-0">→</span>
                 </div>
               </div>
               {c.query_text && (

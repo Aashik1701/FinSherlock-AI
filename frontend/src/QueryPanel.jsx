@@ -105,7 +105,7 @@ export default function QueryPanel({ onSubmit, loading }) {
       </div>
 
       {/* Input bar */}
-      <div className="flex gap-3">
+      <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
         <div className="relative flex-1">
           <input
             type="text"
@@ -113,7 +113,7 @@ export default function QueryPanel({ onSubmit, loading }) {
             onChange={e => setQuery(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && run()}
             placeholder="e.g. Find structuring patterns in the last 30 days…"
-            className="w-full bg-slate-900/90 border border-slate-800 rounded-xl px-5 py-3.5 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition-all font-mono shadow-inner"
+            className="w-full bg-slate-900/90 border border-slate-800 rounded-xl px-4 sm:px-5 py-3 sm:py-3.5 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition-all font-mono shadow-inner"
           />
           {query && (
             <button
@@ -127,10 +127,10 @@ export default function QueryPanel({ onSubmit, loading }) {
         <button
           onClick={() => run()}
           disabled={!query.trim() || loading}
-          className="px-6 py-3.5 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 disabled:bg-slate-800/80 disabled:text-slate-600 text-white text-sm font-semibold rounded-xl transition-all shadow-md shadow-blue-950/40 disabled:shadow-none whitespace-nowrap"
+          className="w-full sm:w-auto px-6 py-3 sm:py-3.5 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 disabled:bg-slate-800/80 disabled:text-slate-600 text-white text-sm font-semibold rounded-xl transition-all shadow-md shadow-blue-950/40 disabled:shadow-none"
         >
           {loading ? (
-            <span className="flex items-center gap-2">
+            <span className="flex items-center justify-center gap-2">
               <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               Running…
             </span>

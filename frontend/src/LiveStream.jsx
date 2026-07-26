@@ -242,7 +242,7 @@ export default function LiveStream() {
     <div className="space-y-5">
 
       {/* ── Header + Controls ──────────────────────────────────────────── */}
-      <div className="flex items-end justify-between flex-wrap gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <div className="space-y-1">
           <h2 className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">
             Live Transaction Stream
@@ -335,7 +335,7 @@ export default function LiveStream() {
           </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
             <div className="bg-slate-950 rounded-lg px-3 py-2 border border-slate-800">
               <p className="text-[9px] font-bold text-slate-600 uppercase tracking-widest">Status</p>
               <p className={`text-sm font-bold ${isRunning ? 'text-emerald-400' : isPaused ? 'text-amber-400' : 'text-slate-500'}`}>
@@ -427,7 +427,8 @@ export default function LiveStream() {
                 <p className="text-slate-800 text-[10px]">Transactions will appear here as they are inserted</p>
               </div>
             ) : (
-              <div className="divide-y divide-slate-800/30">
+              <div className="overflow-x-auto">
+              <div className="divide-y divide-slate-800/30 min-w-[480px]">
                 {/* Header */}
                 <div className="flex items-center gap-3 px-3 py-2 bg-slate-900/80 border-b border-slate-800 text-[10px] text-slate-600 font-semibold uppercase tracking-wider">
                   <span className="w-28 shrink-0">Timestamp</span>
@@ -444,6 +445,7 @@ export default function LiveStream() {
                     isNew={i >= prevTxnCount.current}
                   />
                 ))}
+              </div>
               </div>
             )}
           </div>

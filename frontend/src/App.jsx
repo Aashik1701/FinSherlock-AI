@@ -341,89 +341,72 @@ export default function App() {
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <header className="sticky top-0 z-20 bg-[#0b0f19]/90 backdrop-blur-md border-b border-slate-800/80">
-        <div className="max-w-5xl mx-auto px-6 py-3 flex items-center justify-between gap-6">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-blue-600/20 border border-blue-500/40 flex items-center justify-center font-mono font-bold text-blue-400 text-sm shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-wrap sm:flex-nowrap items-center justify-between gap-x-4 sm:gap-x-6">
+
+          {/* Logo — order 1, left */}
+          <div className="order-1 flex items-center gap-3 py-2 sm:py-3 min-w-0">
+            <div className="w-8 h-8 rounded-lg bg-blue-600/20 border border-blue-500/40 flex items-center justify-center font-mono font-bold text-blue-400 text-sm shadow-sm shrink-0">
               FS
             </div>
-            <div>
+            <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <h1 className="text-sm font-bold text-slate-100 tracking-tight">FinSherlock AI</h1>
-                <span className="px-2 py-0.5 rounded text-[9px] font-mono font-semibold bg-blue-950/60 text-blue-300 border border-blue-800/60">
+                <h1 className="text-sm font-bold text-slate-100 tracking-tight whitespace-nowrap">FinSherlock AI</h1>
+                <span className="hidden sm:inline px-2 py-0.5 rounded text-[9px] font-mono font-semibold bg-blue-950/60 text-blue-300 border border-blue-800/60 whitespace-nowrap">
                   Soci&eacute;t&eacute; G&eacute;n&eacute;rale Hackathon
                 </span>
               </div>
-              <p className="text-[10px] text-slate-500 mt-0.5">
+              <p className="hidden sm:block text-[10px] text-slate-500 mt-0.5 truncate">
                 Agentic Anti-Money Laundering Investigation Platform
               </p>
             </div>
           </div>
 
-          {/* Tab navigation */}
-          <nav className="flex items-center gap-1 bg-slate-950/60 rounded-lg p-0.5 border border-slate-800/50">
-            <button
-              onClick={() => setActiveTab('investigate')}
-              className={`px-3 py-1.5 rounded-md text-[11px] font-semibold transition-all ${
-                activeTab === 'investigate'
-                  ? 'bg-slate-800 text-slate-100 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-400'
-              }`}
-            >
-              Investigate
-            </button>
-            <button
-              onClick={() => setActiveTab('watchlist')}
-              className={`px-3 py-1.5 rounded-md text-[11px] font-semibold transition-all ${
-                activeTab === 'watchlist'
-                  ? 'bg-slate-800 text-slate-100 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-400'
-              }`}
-            >
-              Watchlist
-            </button>
-            <button
-              onClick={() => setActiveTab('cases')}
-              className={`px-3 py-1.5 rounded-md text-[11px] font-semibold transition-all ${
-                activeTab === 'cases'
-                  ? 'bg-slate-800 text-slate-100 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-400'
-              }`}
-            >
-              Cases
-            </button>
-            <button
-              onClick={() => setActiveTab('stream')}
-              className={`px-3 py-1.5 rounded-md text-[11px] font-semibold transition-all ${
-                activeTab === 'stream'
-                  ? 'bg-slate-800 text-slate-100 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-400'
-              }`}
-            >
-              Live Stream
-            </button>
-          </nav>
-
-          <div className="flex items-center gap-5 shrink-0">
+          {/* Status — order 2, right */}
+          <div className="order-2 flex items-center gap-3 sm:gap-5 shrink-0 py-2 sm:py-3">
             {result && (
-              <div className="hidden sm:flex items-center gap-4 text-[10px] text-slate-500 font-mono">
+              <div className="hidden md:flex items-center gap-4 text-[10px] text-slate-500 font-mono">
                 <span>{explanations.length} flagged</span>
                 <span className="w-px h-3 bg-slate-800" />
                 <span>{Object.values(timing).reduce((a, b) => a + b, 0).toFixed(2)}s</span>
               </div>
             )}
-            <div className="w-px h-4 bg-slate-800 hidden sm:block" />
+            <div className="hidden sm:block w-px h-4 bg-slate-800" />
             <div className="flex items-center gap-2 text-[10px] text-slate-400 font-mono">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              localhost:8000
+              <span className="hidden sm:inline">localhost:8000</span>
             </div>
-            <div className="w-px h-4 bg-slate-800 hidden sm:block" />
+            <div className="hidden sm:block w-px h-4 bg-slate-800" />
             <LiveClock />
           </div>
+
+          {/* Tab navigation — order 3: full-width second row on mobile, inline on sm+ */}
+          <nav className="order-3 sm:order-none w-full sm:w-auto border-t border-slate-800/40 sm:border-0 overflow-x-auto py-1 sm:py-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div className="flex items-center gap-1 w-max sm:w-auto sm:bg-slate-950/60 sm:rounded-lg sm:p-0.5 sm:border sm:border-slate-800/50">
+              {[
+                { key: 'investigate', label: 'Investigate' },
+                { key: 'watchlist',   label: 'Watchlist' },
+                { key: 'cases',       label: 'Cases' },
+                { key: 'stream',      label: 'Live Stream' },
+              ].map(({ key, label }) => (
+                <button
+                  key={key}
+                  onClick={() => setActiveTab(key)}
+                  className={`px-3 py-1.5 rounded-md text-[11px] font-semibold transition-all whitespace-nowrap ${
+                    activeTab === key
+                      ? 'bg-slate-800 text-slate-100 shadow-sm'
+                      : 'text-slate-600 hover:text-slate-400'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </nav>
         </div>
       </header>
 
       {/* ── Main content ───────────────────────────────────────────────────── */}
-      <main className="flex-1 max-w-5xl mx-auto w-full px-6 py-10 space-y-10">
+      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 sm:py-10 space-y-8 sm:space-y-10">
 
         {activeTab === 'investigate' && (
           <>
@@ -443,38 +426,6 @@ export default function App() {
               </div>
             )}
 
-            {/* Results — rendered progressively as stream events arrive */}
-            {result && (
-              <div className="space-y-8">
-
-                <ExecutionPlan
-                  plan={plan}
-                  plannerSource={plannerSource}
-                  timing={timing}
-                  errors={errors}
-                  toolStatus={toolStatus}
-                />
-
-                <DatasetOverview
-                  eda={eda}
-                  engineerFeatures={engineerFeatures}
-                  structuringData={structuringData}
-                  smurfingData={smurfingData}
-                  layeringData={layeringData}
-                  explanations={explanations}
-                />
-
-                <FindingsSection
-                  explanations={explanations}
-                  structuringData={structuringData}
-                  smurfingData={smurfingData}
-                  layeringData={layeringData}
-                  classifyData={classifyData}
-                />
-
-                {!loading && <RawResponse data={result} />}
-              </div>
-            )}
           </>
         )}
 
@@ -516,6 +467,8 @@ export default function App() {
               {!loading && <RawResponse data={result} />}
             </div>
           </ErrorBoundary>
+        )}
+
         {activeTab === 'watchlist' && (
           <Watchlist />
         )}
@@ -531,11 +484,11 @@ export default function App() {
 
       {/* ── Footer ─────────────────────────────────────────────────────────── */}
       <footer className="border-t border-slate-900 mt-auto">
-        <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between gap-4">
-          <p className="text-[10px] text-slate-800 font-mono">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col sm:flex-row items-center sm:justify-between gap-1 sm:gap-4">
+          <p className="text-[10px] text-slate-800 font-mono text-center sm:text-left">
             deterministic detection &middot; evidence-grounded explanations &middot; LLM never decides risk
           </p>
-          <p className="text-[10px] text-slate-800 shrink-0">
+          <p className="text-[10px] text-slate-800 text-center sm:text-right shrink-0">
             IBM HI-Small AML Dataset &middot; FinSherlock AI v1.0
           </p>
         </div>
